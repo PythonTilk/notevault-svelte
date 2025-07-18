@@ -1,157 +1,236 @@
 import { writable } from 'svelte/store';
 import type { Workspace, Note } from '$lib/types';
+import { api } from '$lib/api';
 
 export const workspaces = writable<Workspace[]>([]);
 export const currentWorkspace = writable<Workspace | null>(null);
 export const workspaceNotes = writable<Note[]>([]);
 
-// Mock data
-const mockWorkspaces: Workspace[] = [
-  {
-    id: '1',
-    name: 'Personal Projects',
-    description: 'My personal workspace for side projects',
-    color: '#ef4444',
-    ownerId: '1',
-    members: [{ userId: '1', role: 'owner', joinedAt: new Date() }],
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    isPublic: false
-  },
-  {
-    id: '2',
-    name: 'Team Collaboration',
-    description: 'Shared workspace for team projects',
-    color: '#3b82f6',
-    ownerId: '1',
-    members: [
-      { userId: '1', role: 'owner', joinedAt: new Date() },
-      { userId: '2', role: 'admin', joinedAt: new Date() }
-    ],
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    isPublic: true
-  },
-  {
-    id: '3',
-    name: 'Research Notes',
-    description: 'Academic research and documentation',
-    color: '#10b981',
-    ownerId: '1',
-    members: [{ userId: '1', role: 'owner', joinedAt: new Date() }],
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    isPublic: false
-  }
-];
-
-const mockNotes: Note[] = [
-  {
-    id: '1',
-    title: 'Project Ideas',
-    content: 'List of potential project ideas to explore...',
-    type: 'text',
-    workspaceId: '1',
-    authorId: '1',
-    position: { x: 100, y: 100 },
-    size: { width: 300, height: 200 },
-    color: '#fbbf24',
-    tags: ['ideas', 'projects'],
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    isPublic: false
-  },
-  {
-    id: '2',
-    title: 'Meeting Notes',
-    content: '# Team Meeting\n\n- Discussed project timeline\n- Assigned tasks\n- Next meeting: Friday',
-    type: 'rich',
-    workspaceId: '2',
-    authorId: '1',
-    position: { x: 450, y: 150 },
-    size: { width: 350, height: 250 },
-    color: '#8b5cf6',
-    tags: ['meeting', 'team'],
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    isPublic: true
-  },
-  {
-    id: '3',
-    title: 'Code Snippet',
-    content: 'function fibonacci(n) {\n  if (n <= 1) return n;\n  return fibonacci(n-1) + fibonacci(n-2);\n}',
-    type: 'code',
-    workspaceId: '1',
-    authorId: '1',
-    position: { x: 200, y: 350 },
-    size: { width: 400, height: 180 },
-    color: '#06b6d4',
-    tags: ['code', 'javascript'],
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    isPublic: false
-  }
-];
-
 export const workspaceStore = {
   loadWorkspaces: async () => {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 500));
-    workspaces.set(mockWorkspaces);
+    try {
+      const workspacesData = await api.getWorkspaces();
+      const formattedWorkspaces: Workspace[] = workspacesData.map((ws: any) => ({
+        id: ws.id,
+        name: ws.name,
+        description: ws.description,
+        color: ws.color,
+        ownerId: ws.ownerId,
+        members: ws.members || [],
+        createdAt: new Date(ws.createdAt),
+        updatedAt: new Date(ws.updatedAt),
+        isPublic: ws.isPublic
+      }));
+      workspaces.set(formattedWorkspaces);
+    } catch (error) {
+      console.error('Failed to load workspaces:', error);
+      workspaces.set([]);
+    }
+  },
+
+  loadWorkspace: async (workspaceId: string) => {
+    try {
+      const workspaceData = await api.getWorkspace(workspaceId);
+      const workspace: Workspace = {
+        id: workspaceData.id,
+        name: workspaceData.name,
+        description: workspaceData.description,
+        color: workspaceData.color,
+        ownerId: workspaceData.ownerId,
+        members: workspaceData.members || [],
+        createdAt: new Date(workspaceData.createdAt),
+        updatedAt: new Date(workspaceData.updatedAt),
+        isPublic: workspaceData.isPublic
+      };
+      currentWorkspace.set(workspace);
+      return workspace;
+    } catch (error) {
+      console.error('Failed to load workspace:', error);
+      currentWorkspace.set(null);
+      throw error;
+    }
   },
   
   loadWorkspaceNotes: async (workspaceId: string) => {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 300));
-    const notes = mockNotes.filter(note => note.workspaceId === workspaceId);
-    workspaceNotes.set(notes);
+    try {
+      const notesData = await api.getWorkspaceNotes(workspaceId);
+      const formattedNotes: Note[] = notesData.map((note: any) => ({
+        id: note.id,
+        title: note.title,
+        content: note.content,
+        type: note.type,
+        workspaceId: note.workspaceId,
+        authorId: note.authorId,
+        position: note.position || { x: 0, y: 0 },
+        size: note.size || { width: 300, height: 200 },
+        color: note.color,
+        tags: note.tags || [],
+        createdAt: new Date(note.createdAt),
+        updatedAt: new Date(note.updatedAt),
+        isPublic: note.isPublic
+      }));
+      workspaceNotes.set(formattedNotes);
+    } catch (error) {
+      console.error('Failed to load workspace notes:', error);
+      workspaceNotes.set([]);
+    }
   },
   
-  createWorkspace: async (data: Partial<Workspace>) => {
-    const newWorkspace: Workspace = {
-      id: Date.now().toString(),
-      name: data.name || 'New Workspace',
-      description: data.description,
-      color: data.color || '#ef4444',
-      ownerId: '1',
-      members: [{ userId: '1', role: 'owner', joinedAt: new Date() }],
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      isPublic: data.isPublic || false
-    };
-    
-    workspaces.update(ws => [...ws, newWorkspace]);
-    return newWorkspace;
+  createWorkspace: async (data: {
+    name: string;
+    description?: string;
+    color: string;
+    isPublic?: boolean;
+  }) => {
+    try {
+      const newWorkspaceData = await api.createWorkspace(data);
+      const newWorkspace: Workspace = {
+        id: newWorkspaceData.id,
+        name: newWorkspaceData.name,
+        description: newWorkspaceData.description,
+        color: newWorkspaceData.color,
+        ownerId: newWorkspaceData.ownerId,
+        members: newWorkspaceData.members || [],
+        createdAt: new Date(newWorkspaceData.createdAt),
+        updatedAt: new Date(newWorkspaceData.updatedAt),
+        isPublic: newWorkspaceData.isPublic
+      };
+      
+      workspaces.update(ws => [...ws, newWorkspace]);
+      return newWorkspace;
+    } catch (error) {
+      console.error('Failed to create workspace:', error);
+      throw error;
+    }
+  },
+
+  updateWorkspace: async (workspaceId: string, updates: {
+    name?: string;
+    description?: string;
+    color?: string;
+    isPublic?: boolean;
+  }) => {
+    try {
+      const updatedWorkspaceData = await api.updateWorkspace(workspaceId, updates);
+      const updatedWorkspace: Workspace = {
+        id: updatedWorkspaceData.id,
+        name: updatedWorkspaceData.name,
+        description: updatedWorkspaceData.description,
+        color: updatedWorkspaceData.color,
+        ownerId: updatedWorkspaceData.ownerId,
+        members: [], // Will be loaded separately if needed
+        createdAt: new Date(updatedWorkspaceData.createdAt),
+        updatedAt: new Date(updatedWorkspaceData.updatedAt),
+        isPublic: updatedWorkspaceData.isPublic
+      };
+
+      workspaces.update(ws => 
+        ws.map(w => w.id === workspaceId ? updatedWorkspace : w)
+      );
+
+      currentWorkspace.update(current => 
+        current?.id === workspaceId ? updatedWorkspace : current
+      );
+
+      return updatedWorkspace;
+    } catch (error) {
+      console.error('Failed to update workspace:', error);
+      throw error;
+    }
+  },
+
+  deleteWorkspace: async (workspaceId: string) => {
+    try {
+      await api.deleteWorkspace(workspaceId);
+      workspaces.update(ws => ws.filter(w => w.id !== workspaceId));
+      currentWorkspace.update(current => 
+        current?.id === workspaceId ? null : current
+      );
+    } catch (error) {
+      console.error('Failed to delete workspace:', error);
+      throw error;
+    }
   },
   
   updateNote: async (noteId: string, updates: Partial<Note>) => {
-    workspaceNotes.update(notes => 
-      notes.map(note => 
-        note.id === noteId 
-          ? { ...note, ...updates, updatedAt: new Date() }
-          : note
-      )
-    );
+    try {
+      const updatedNoteData = await api.updateNote(noteId, updates);
+      const updatedNote: Note = {
+        id: updatedNoteData.id,
+        title: updatedNoteData.title,
+        content: updatedNoteData.content,
+        type: updatedNoteData.type,
+        workspaceId: updatedNoteData.workspaceId,
+        authorId: updatedNoteData.authorId,
+        position: updatedNoteData.position || { x: 0, y: 0 },
+        size: updatedNoteData.size || { width: 300, height: 200 },
+        color: updatedNoteData.color,
+        tags: updatedNoteData.tags || [],
+        createdAt: new Date(updatedNoteData.createdAt),
+        updatedAt: new Date(updatedNoteData.updatedAt),
+        isPublic: updatedNoteData.isPublic
+      };
+
+      workspaceNotes.update(notes => 
+        notes.map(note => 
+          note.id === noteId ? updatedNote : note
+        )
+      );
+
+      return updatedNote;
+    } catch (error) {
+      console.error('Failed to update note:', error);
+      throw error;
+    }
   },
   
-  createNote: async (workspaceId: string, data: Partial<Note>) => {
-    const newNote: Note = {
-      id: Date.now().toString(),
-      title: data.title || 'New Note',
-      content: data.content || '',
-      type: data.type || 'text',
-      workspaceId,
-      authorId: '1',
-      position: data.position || { x: Math.random() * 400, y: Math.random() * 300 },
-      size: data.size || { width: 300, height: 200 },
-      color: data.color || '#fbbf24',
-      tags: data.tags || [],
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      isPublic: data.isPublic || false
-    };
-    
-    workspaceNotes.update(notes => [...notes, newNote]);
-    return newNote;
+  createNote: async (workspaceId: string, data: {
+    title: string;
+    content?: string;
+    type?: string;
+    position?: { x: number; y: number };
+    size?: { width: number; height: number };
+    color: string;
+    tags?: string[];
+    isPublic?: boolean;
+  }) => {
+    try {
+      const newNoteData = await api.createNote({
+        ...data,
+        workspaceId
+      });
+
+      const newNote: Note = {
+        id: newNoteData.id,
+        title: newNoteData.title,
+        content: newNoteData.content,
+        type: newNoteData.type,
+        workspaceId: newNoteData.workspaceId,
+        authorId: newNoteData.authorId,
+        position: newNoteData.position || { x: 0, y: 0 },
+        size: newNoteData.size || { width: 300, height: 200 },
+        color: newNoteData.color,
+        tags: newNoteData.tags || [],
+        createdAt: new Date(newNoteData.createdAt),
+        updatedAt: new Date(newNoteData.updatedAt),
+        isPublic: newNoteData.isPublic
+      };
+      
+      workspaceNotes.update(notes => [...notes, newNote]);
+      return newNote;
+    } catch (error) {
+      console.error('Failed to create note:', error);
+      throw error;
+    }
+  },
+
+  deleteNote: async (noteId: string) => {
+    try {
+      await api.deleteNote(noteId);
+      workspaceNotes.update(notes => notes.filter(note => note.id !== noteId));
+    } catch (error) {
+      console.error('Failed to delete note:', error);
+      throw error;
+    }
   }
 };

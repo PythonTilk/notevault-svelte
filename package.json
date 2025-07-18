@@ -4,10 +4,14 @@
   "private": true,
   "scripts": {
     "build": "vite build",
-    "dev": "vite dev --host 0.0.0.0 --port 51975",
-    "preview": "vite preview --host 0.0.0.0 --port 51975",
+    "dev": "vite dev --host 0.0.0.0 --port 50063",
+    "preview": "vite preview --host 0.0.0.0 --port 50063",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-    "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
+    "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+    "dev:backend": "cd server && npm run dev",
+    "start:backend": "cd server && npm start",
+    "dev:full": "concurrently \"npm run dev:backend\" \"npm run dev\"",
+    "init:backend": "cd server && npm run init-db"
   },
   "devDependencies": {
     "@sveltejs/adapter-auto": "^3.0.0",
@@ -15,6 +19,7 @@
     "@sveltejs/vite-plugin-svelte": "^4.0.0",
     "@types/node": "^22.0.0",
     "autoprefixer": "^10.4.16",
+    "concurrently": "^8.2.2",
     "postcss": "^8.4.32",
     "svelte": "^5.0.0",
     "svelte-check": "^4.0.0",

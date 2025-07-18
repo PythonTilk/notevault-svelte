@@ -22,6 +22,8 @@
       const result = await authStore.login(email, password);
       if (result.success) {
         goto('/');
+      } else {
+        error = result.error || 'Invalid email or password';
       }
     } catch (err) {
       error = 'Invalid email or password';
@@ -152,8 +154,9 @@
       <!-- Demo Credentials -->
       <div class="bg-blue-500/10 border border-blue-500 rounded-lg p-4">
         <p class="text-blue-400 text-sm font-medium mb-2">Demo Credentials:</p>
-        <p class="text-blue-300 text-sm">Email: demo@example.com</p>
-        <p class="text-blue-300 text-sm">Password: any password</p>
+        <p class="text-blue-300 text-sm">Email: demo@notevault.com</p>
+        <p class="text-blue-300 text-sm">Password: demo123</p>
+        <p class="text-blue-300 text-sm mt-1">Admin: admin@notevault.com / admin123</p>
       </div>
 
       <!-- Sign up link -->
