@@ -1,0 +1,33 @@
+{
+  "name": "notevault-svelte",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite dev --host 0.0.0.0 --port 51975",
+    "preview": "vite preview --host 0.0.0.0 --port 51975",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-auto": "^3.0.0",
+    "@sveltejs/kit": "^2.0.0",
+    "@sveltejs/vite-plugin-svelte": "^4.0.0",
+    "@types/node": "^22.0.0",
+    "autoprefixer": "^10.4.16",
+    "postcss": "^8.4.32",
+    "svelte": "^5.0.0",
+    "svelte-check": "^4.0.0",
+    "tailwindcss": "^3.3.6",
+    "typescript": "^5.0.0",
+    "vite": "^5.0.3"
+  },
+  "dependencies": {
+    "@tailwindcss/forms": "^0.5.7",
+    "@tailwindcss/typography": "^0.5.10",
+    "lucide-svelte": "^0.447.0",
+    "socket.io-client": "^4.7.5",
+    "zod": "^3.22.4"
+  },
+  "type": "module"
+}

@@ -1,0 +1,463 @@
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import { Search, Filter, UserPlus, Crown, Shield, User, Ban, Mail, MoreHorizontal } from 'lucide-svelte';
+  import type { User as UserType } from '$lib/types';
+
+  let users: UserType[] = [];
+  let searchQuery = '';
+  let selectedRole = 'all';
+  let showCreateModal = false;
+  let selectedUser: UserType | null = null;
+  let showUserModal = false;
+
+  // Mock users data
+  const mockUsers: UserType[] = [
+    {
+      id: '1',
+      username: 'demo_user',
+      email: 'demo@example.com',
+      displayName: 'Demo User',
+      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=demo',
+      role: 'admin',
+      createdAt: new Date(Date.now() - 86400000 * 30),
+      lastActive: new Date(),
+      isOnline: true
+    },
+    {
+      id: '2',
+      username: 'alice_dev',
+      email: 'alice@example.com',
+      displayName: 'Alice Developer',
+      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=alice',
+      role: 'moderator',
+      createdAt: new Date(Date.now() - 86400000 * 15),
+      lastActive: new Date(Date.now() - 3600000),
+      isOnline: true
+    },
+    {
+      id: '3',
+      username: 'bob_designer',
+      email: 'bob@example.com',
+      displayName: 'Bob Designer',
+      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=bob',
+      role: 'user',
+      createdAt: new Date(Date.now() - 86400000 * 7),
+      lastActive: new Date(Date.now() - 86400000),
+      isOnline: false
+    },
+    {
+      id: '4',
+      username: 'charlie_writer',
+      email: 'charlie@example.com',
+      displayName: 'Charlie Writer',
+      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=charlie',
+      role: 'user',
+      createdAt: new Date(Date.now() - 86400000 * 3),
+      lastActive: new Date(Date.now() - 7200000),
+      isOnline: false
+    }
+  ];
+
+  onMount(() => {
+    users = mockUsers;
+  });
+
+  function getRoleIcon(role: string) {
+    switch (role) {
+      case 'admin':
+        return Crown;
+      case 'moderator':
+        return Shield;
+      default:
+        return User;
+    }
+  }
+
+  function getRoleColor(role: string) {
+    switch (role) {
+      case 'admin':
+        return 'text-yellow-400 bg-yellow-400/10';
+      case 'moderator':
+        return 'text-blue-400 bg-blue-400/10';
+      default:
+        return 'text-dark-400 bg-dark-400/10';
+    }
+  }
+
+  function formatDate(date: Date): string {
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(date);
+  }
+
+  function getTimeAgo(date: Date): string {
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+
+    if (minutes < 60) return `${minutes}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    return `${days}d ago`;
+  }
+
+  function updateUserRole(userId: string, newRole: 'admin' | 'moderator' | 'user') {
+    users = users.map(user => 
+      user.id === userId ? { ...user, role: newRole } : user
+    );
+  }
+
+  function banUser(userId: string) {
+    // Mock ban functionality
+    console.log('Banning user:', userId);
+  }
+
+  function sendEmail(userId: string) {
+    // Mock email functionality
+    console.log('Sending email to user:', userId);
+  }
+
+  $: filteredUsers = users.filter(user => {
+    const matchesSearch = user.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         user.username.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesRole = selectedRole === 'all' || user.role === selectedRole;
+    return matchesSearch && matchesRole;
+  });
+
+  $: userStats = {
+    total: users.length,
+    online: users.filter(u => u.isOnline).length,
+    admins: users.filter(u => u.role === 'admin').length,
+    moderators: users.filter(u => u.role === 'moderator').length,
+    users: users.filter(u => u.role === 'user').length
+  };
+</script>
+
+<svelte:head>
+  <title>User Management - NoteVault</title>
+</svelte:head>
+
+<!-- Header -->
+<header class="bg-dark-900 border-b border-dark-800 px-6 py-4">
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-xl font-bold text-white">User Management</h1>
+      <p class="text-dark-400 text-sm">
+        {userStats.total} total users • {userStats.online} online
+      </p>
+    </div>
+    
+    <div class="flex items-center space-x-3">
+      <button
+        class="btn-primary"
+        on:click={() => showCreateModal = true}
+      >
+        <UserPlus class="w-4 h-4 mr-2" />
+        Invite User
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- Stats Bar -->
+<div class="bg-dark-900 border-b border-dark-800 px-6 py-3">
+  <div class="flex items-center space-x-6">
+    <div class="flex items-center space-x-2">
+      <Crown class="w-4 h-4 text-yellow-400" />
+      <span class="text-sm text-dark-300">{userStats.admins} Admins</span>
+    </div>
+    <div class="flex items-center space-x-2">
+      <Shield class="w-4 h-4 text-blue-400" />
+      <span class="text-sm text-dark-300">{userStats.moderators} Moderators</span>
+    </div>
+    <div class="flex items-center space-x-2">
+      <User class="w-4 h-4 text-dark-400" />
+      <span class="text-sm text-dark-300">{userStats.users} Users</span>
+    </div>
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="bg-dark-900 border-b border-dark-800 px-6 py-3">
+  <div class="flex items-center space-x-4">
+    <!-- Search -->
+    <div class="relative flex-1 max-w-md">
+      <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-dark-400" />
+      <input
+        type="text"
+        bind:value={searchQuery}
+        placeholder="Search users..."
+        class="input pl-10"
+      />
+    </div>
+    
+    <!-- Role Filter -->
+    <select
+      bind:value={selectedRole}
+      class="input w-40"
+    >
+      <option value="all">All Roles</option>
+      <option value="admin">Admins</option>
+      <option value="moderator">Moderators</option>
+      <option value="user">Users</option>
+    </select>
+  </div>
+</div>
+
+<!-- Users Table -->
+<main class="flex-1 overflow-auto">
+  <div class="bg-dark-900">
+    <div class="overflow-x-auto">
+      <table class="w-full">
+        <thead class="bg-dark-800 border-b border-dark-700">
+          <tr>
+            <th class="px-6 py-3 text-left text-xs font-medium text-dark-300 uppercase tracking-wider">
+              User
+            </th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-dark-300 uppercase tracking-wider">
+              Role
+            </th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-dark-300 uppercase tracking-wider">
+              Status
+            </th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-dark-300 uppercase tracking-wider">
+              Last Active
+            </th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-dark-300 uppercase tracking-wider">
+              Joined
+            </th>
+            <th class="px-6 py-3 text-right text-xs font-medium text-dark-300 uppercase tracking-wider">
+              Actions
+            </th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-dark-800">
+          {#each filteredUsers as user (user.id)}
+            <tr class="hover:bg-dark-800 transition-colors">
+              <!-- User Info -->
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="flex items-center">
+                  <div class="relative">
+                    <img
+                      src={user.avatar}
+                      alt={user.displayName}
+                      class="w-10 h-10 rounded-full"
+                    />
+                    {#if user.isOnline}
+                      <div class="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-dark-900 rounded-full"></div>
+                    {/if}
+                  </div>
+                  <div class="ml-4">
+                    <div class="text-sm font-medium text-white">
+                      {user.displayName}
+                    </div>
+                    <div class="text-sm text-dark-400">
+                      @{user.username}
+                    </div>
+                    <div class="text-xs text-dark-500">
+                      {user.email}
+                    </div>
+                  </div>
+                </div>
+              </td>
+
+              <!-- Role -->
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="flex items-center space-x-2">
+                  <svelte:component this={getRoleIcon(user.role)} class="w-4 h-4 {getRoleColor(user.role).split(' ')[0]}" />
+                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {getRoleColor(user.role)} capitalize">
+                    {user.role}
+                  </span>
+                </div>
+              </td>
+
+              <!-- Status -->
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {user.isOnline ? 'bg-green-500/10 text-green-400' : 'bg-dark-500/10 text-dark-400'}">
+                  {user.isOnline ? 'Online' : 'Offline'}
+                </span>
+              </td>
+
+              <!-- Last Active -->
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-dark-300">
+                {user.isOnline ? 'Now' : getTimeAgo(user.lastActive)}
+              </td>
+
+              <!-- Joined -->
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-dark-300">
+                {formatDate(user.createdAt)}
+              </td>
+
+              <!-- Actions -->
+              <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                <div class="flex items-center justify-end space-x-2">
+                  <!-- Role Change Dropdown -->
+                  <select
+                    value={user.role}
+                    on:change={(e) => updateUserRole(user.id, e.target.value)}
+                    class="text-xs bg-dark-800 border border-dark-700 rounded px-2 py-1 text-white"
+                  >
+                    <option value="user">User</option>
+                    <option value="moderator">Moderator</option>
+                    <option value="admin">Admin</option>
+                  </select>
+
+                  <!-- Action Buttons -->
+                  <button
+                    class="p-1 text-dark-400 hover:text-blue-400 rounded"
+                    on:click={() => sendEmail(user.id)}
+                    title="Send Email"
+                  >
+                    <Mail class="w-4 h-4" />
+                  </button>
+                  
+                  <button
+                    class="p-1 text-dark-400 hover:text-red-400 rounded"
+                    on:click={() => banUser(user.id)}
+                    title="Ban User"
+                  >
+                    <Ban class="w-4 h-4" />
+                  </button>
+                  
+                  <button
+                    class="p-1 text-dark-400 hover:text-white rounded"
+                    on:click={() => {
+                      selectedUser = user;
+                      showUserModal = true;
+                    }}
+                    title="More Actions"
+                  >
+                    <MoreHorizontal class="w-4 h-4" />
+                  </button>
+                </div>
+              </td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<!-- Invite User Modal -->
+{#if showCreateModal}
+  <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div class="bg-dark-900 rounded-lg border border-dark-800 w-full max-w-md">
+      <div class="p-6">
+        <h2 class="text-xl font-semibold text-white mb-4">Invite User</h2>
+        
+        <form class="space-y-4">
+          <div>
+            <label for="email" class="block text-sm font-medium text-dark-300 mb-2">
+              Email Address
+            </label>
+            <input
+              id="email"
+              type="email"
+              class="input"
+              placeholder="user@example.com"
+              required
+            />
+          </div>
+
+          <div>
+            <label for="role" class="block text-sm font-medium text-dark-300 mb-2">
+              Role
+            </label>
+            <select id="role" class="input">
+              <option value="user">User</option>
+              <option value="moderator">Moderator</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="message" class="block text-sm font-medium text-dark-300 mb-2">
+              Welcome Message (optional)
+            </label>
+            <textarea
+              id="message"
+              class="input resize-none"
+              rows="3"
+              placeholder="Welcome to NoteVault!"
+            ></textarea>
+          </div>
+
+          <div class="flex items-center justify-end space-x-3 pt-4">
+            <button
+              type="button"
+              class="btn-secondary"
+              on:click={() => showCreateModal = false}
+            >
+              Cancel
+            </button>
+            <button type="submit" class="btn-primary">
+              Send Invitation
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- User Detail Modal -->
+{#if showUserModal && selectedUser}
+  <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div class="bg-dark-900 rounded-lg border border-dark-800 w-full max-w-lg">
+      <div class="p-6">
+        <div class="flex items-center space-x-4 mb-6">
+          <img
+            src={selectedUser.avatar}
+            alt={selectedUser.displayName}
+            class="w-16 h-16 rounded-full"
+          />
+          <div>
+            <h2 class="text-xl font-semibold text-white">{selectedUser.displayName}</h2>
+            <p class="text-dark-400">@{selectedUser.username}</p>
+            <p class="text-dark-400 text-sm">{selectedUser.email}</p>
+          </div>
+        </div>
+
+        <div class="space-y-4">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-dark-300 mb-1">Role</label>
+              <p class="text-white capitalize">{selectedUser.role}</p>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-dark-300 mb-1">Status</label>
+              <p class="text-white">{selectedUser.isOnline ? 'Online' : 'Offline'}</p>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-dark-300 mb-1">Joined</label>
+              <p class="text-white">{formatDate(selectedUser.createdAt)}</p>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-dark-300 mb-1">Last Active</label>
+              <p class="text-white">{formatDate(selectedUser.lastActive)}</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end space-x-3 pt-6">
+          <button
+            class="btn-secondary"
+            on:click={() => showUserModal = false}
+          >
+            Close
+          </button>
+          <button class="btn-primary">
+            Edit User
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+{/if}
