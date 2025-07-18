@@ -20,6 +20,7 @@
     "@types/node": "^22.0.0",
     "autoprefixer": "^10.4.16",
     "concurrently": "^8.2.2",
+    "js-yaml": "^4.1.0",
     "postcss": "^8.4.32",
     "svelte": "^5.0.0",
     "svelte-check": "^4.0.0",

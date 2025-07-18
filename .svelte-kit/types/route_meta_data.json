@@ -5,5 +5,8 @@
 	"/chat": [],
 	"/files": [],
 	"/login": [],
+	"/notifications": [],
+	"/register": [],
+	"/settings": [],
 	"/workspaces/[id]": []
 }

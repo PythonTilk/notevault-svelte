@@ -6,6 +6,7 @@ import { api } from '$lib/api';
 
 export const chatMessages = writable<ChatMessage[]>([]);
 export const connectedUsers = writable<User[]>([]);
+export const onlineUsers = connectedUsers; // Alias for compatibility
 export const isConnected = writable<boolean>(false);
 export const typingUsers = writable<string[]>([]);
 
