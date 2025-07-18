@@ -259,6 +259,11 @@ class ApiClient {
     return `${API_BASE_URL}/files/${id}/download`;
   }
 
+  // Public announcements
+  async getAnnouncements() {
+    return this.request('/announcements');
+  }
+
   // Admin endpoints
   async getSystemStats() {
     return this.request('/admin/stats');
@@ -303,7 +308,7 @@ class ApiClient {
     return this.request(`/admin/workspaces/${workspaceId}`, { method: 'DELETE' });
   }
 
-  async getAnnouncements() {
+  async getAdminAnnouncements() {
     return this.request('/admin/announcements');
   }
 

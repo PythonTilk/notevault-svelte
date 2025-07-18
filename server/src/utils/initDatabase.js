@@ -181,6 +181,36 @@ const initDatabase = () => {
         } else {
           console.log('Demo user created (username: demo, password: demo123)');
         }
+
+        // Create default announcements
+        const announcements = [
+          {
+            id: 'welcome-' + Date.now(),
+            title: 'Welcome to NoteVault!',
+            content: 'We\'re excited to have you on board. Explore the new canvas features and start organizing your ideas!',
+            priority: 'high',
+            authorId: adminId
+          },
+          {
+            id: 'features-' + Date.now(),
+            title: 'New Features Available',
+            content: 'Check out the new file management system, real-time chat, and workspace collaboration tools.',
+            priority: 'medium',
+            authorId: adminId
+          }
+        ];
+
+        announcements.forEach(announcement => {
+          db.run(`
+            INSERT OR IGNORE INTO announcements (id, title, content, author_id, priority, is_active)
+            VALUES (?, ?, ?, ?, ?, ?)
+          `, [announcement.id, announcement.title, announcement.content, announcement.authorId, announcement.priority, true], (err) => {
+            if (err) {
+              console.error('Error creating announcement:', err);
+            }
+          });
+        });
+
         resolve();
       });
     });

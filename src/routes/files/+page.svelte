@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { Upload, Search, Filter, Grid, List, Download, Share, Trash2, File, Image, Video, Music, Archive } from 'lucide-svelte';
+  import { api } from '$lib/api';
   import type { FileItem } from '$lib/types';
 
   let files: FileItem[] = [];
@@ -56,9 +57,34 @@
     }
   ];
 
-  onMount(() => {
-    files = mockFiles;
+  let isLoading = true;
+
+  onMount(async () => {
+    await loadFiles();
   });
+
+  async function loadFiles() {
+    try {
+      const data = await api.getFiles({ limit: 100 });
+      files = data.map((file: any) => ({
+        id: file.id,
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        url: api.getFileDownloadUrl(file.id),
+        uploaderId: file.uploadedBy.id,
+        workspaceId: file.workspaceId,
+        createdAt: new Date(file.createdAt),
+        isPublic: file.isPublic
+      }));
+    } catch (error) {
+      console.error('Failed to load files:', error);
+      // Fallback to mock data on error
+      files = mockFiles;
+    } finally {
+      isLoading = false;
+    }
+  }
 
   function getFileIcon(type: string) {
     if (type.startsWith('image/')) return Image;

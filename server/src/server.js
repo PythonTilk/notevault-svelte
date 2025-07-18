@@ -83,6 +83,39 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/files', fileRoutes);
 app.use('/api/admin', adminRoutes);
 
+// Public announcements endpoint
+app.get('/api/announcements', (req, res) => {
+  const query = `
+    SELECT a.*, u.display_name as author_name, u.avatar as author_avatar
+    FROM announcements a
+    LEFT JOIN users u ON a.author_id = u.id
+    WHERE a.is_active = TRUE AND (a.expires_at IS NULL OR a.expires_at > datetime('now'))
+    ORDER BY a.created_at DESC
+  `;
+
+  db.all(query, (err, announcements) => {
+    if (err) {
+      return res.status(500).json({ error: 'Failed to fetch announcements' });
+    }
+
+    res.json(announcements.map(announcement => ({
+      id: announcement.id,
+      title: announcement.title,
+      content: announcement.content,
+      authorId: announcement.author_id,
+      author: {
+        id: announcement.author_id,
+        displayName: announcement.author_name,
+        avatar: announcement.author_avatar
+      },
+      priority: announcement.priority,
+      createdAt: announcement.created_at,
+      expiresAt: announcement.expires_at,
+      isActive: announcement.is_active
+    })));
+  });
+});
+
 // Socket.IO connection handling
 const connectedUsers = new Map();
 
