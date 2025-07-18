@@ -33,7 +33,13 @@ const server = createServer(app);
 // Configure CORS origins
 const corsOrigins = process.env.CORS_ORIGIN ? 
   process.env.CORS_ORIGIN.split(',').map(origin => origin.trim()) : 
-  ['http://localhost:5173', 'http://localhost:50063', 'http://localhost:56770'];
+  [
+    'http://localhost:5173', 
+    'http://localhost:50063', 
+    'http://localhost:56770',
+    'http://localhost:3000',
+    'http://frontend:3000'
+  ];
 
 // Socket.IO setup
 const io = new Server(server, {
@@ -70,6 +76,15 @@ app.use('/api/', limiter);
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'ok', 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'healthy', 
     timestamp: new Date().toISOString(),
     uptime: process.uptime()
   });

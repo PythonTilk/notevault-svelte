@@ -1,6 +1,6 @@
 import { browser } from '$app/environment';
 
-const API_BASE_URL = 'http://localhost:56770/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:56770/api';
 
 class ApiClient {
   private getAuthHeaders(): HeadersInit {

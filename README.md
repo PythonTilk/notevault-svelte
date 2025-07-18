@@ -31,48 +31,164 @@ A modern, feature-rich collaborative workspace platform built with SvelteKit, in
 
 ## 🚀 Quick Start
 
-### Prerequisites
-- Node.js 18+ (LTS recommended)
-- npm or yarn package manager
+### Option 1: Docker (Recommended)
 
-### Installation
+#### Prerequisites
+- Docker and Docker Compose installed on your system
+
+#### Running with Docker
 
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone https://github.com/PythonTilk/notevault-svelte.git
 cd notevault-svelte
+
+# Start the application with Docker Compose
+docker-compose up --build
+```
+
+**Access the application:**
+- **Frontend**: http://localhost:3000
+- **Backend API**: http://localhost:3001
+- **Full Application (via Nginx)**: http://localhost:80
+
+#### Default Users
+- **Admin User**: Username: `admin`, Password: `admin123`
+- **Demo User**: Username: `demo123`, Password: `demo123`
+
+### Option 2: Local Development
+
+#### Prerequisites
+- Node.js 18+ (LTS recommended)
+- npm or yarn package manager
+
+#### Backend Setup
+
+```bash
+# Navigate to server directory
+cd server
 
 # Install dependencies
 npm install
 
-# Start development server
+# Copy environment file
+cp .env.example .env
+
+# Initialize database
+npm run init-db
+
+# Start backend server
 npm run dev
 ```
 
-The application will be available at **http://localhost:51975**
+#### Frontend Setup
 
-### Demo Credentials
-- **Email:** demo@example.com
-- **Password:** any password (demo mode)
+```bash
+# Navigate to root directory (in a new terminal)
+cd ..
+
+# Install dependencies
+npm install
+
+# Copy environment file
+cp .env.example .env
+
+# Start frontend server
+npm run dev
+```
+
+**Access the application:**
+- **Frontend**: http://localhost:5173
+- **Backend API**: http://localhost:3001
+
+## 🐳 Docker Commands
+
+### Basic Commands
+```bash
+# Build and start all services
+docker-compose up --build
+
+# Start services in background
+docker-compose up -d
+
+# Stop all services
+docker-compose down
+
+# View logs
+docker-compose logs -f
+
+# View logs for specific service
+docker-compose logs -f backend
+```
+
+### Development Commands
+```bash
+# Rebuild specific service
+docker-compose build backend
+docker-compose up -d backend
+
+# Access container shell
+docker-compose exec backend sh
+docker-compose exec frontend sh
+
+# Reset database (remove volume)
+docker-compose down
+docker volume rm notevault-svelte_backend_data
+docker-compose up --build
+```
+
+### Environment Variables
+
+#### Frontend (.env)
+```env
+VITE_API_URL=http://localhost:3001/api
+```
+
+#### Backend (server/.env)
+```env
+NODE_ENV=development
+PORT=3001
+DB_PATH=./database/notevault.db
+JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+CORS_ORIGIN=http://localhost:3000,http://localhost:5173
+```
 
 ## 🛠️ Technology Stack
 
-- **Frontend:** SvelteKit 2.0, TypeScript
+### Frontend
+- **Framework:** SvelteKit 2.0, TypeScript
 - **Styling:** Tailwind CSS with custom dark theme
 - **Icons:** Lucide Svelte
 - **State Management:** Svelte stores
 - **Build Tool:** Vite
 - **Package Manager:** npm
 
+### Backend
+- **Runtime:** Node.js 18+
+- **Framework:** Express.js
+- **Database:** SQLite (with migration path to PostgreSQL)
+- **Authentication:** JWT (JSON Web Tokens)
+- **Real-time:** Socket.IO
+- **File Upload:** Multer
+- **Security:** Helmet, CORS, Rate Limiting
+
+### DevOps
+- **Containerization:** Docker & Docker Compose
+- **Reverse Proxy:** Nginx
+- **Environment:** Multi-stage Docker builds
+- **Data Persistence:** Docker volumes
+
 ## 📋 TODO List
 
 ### 🔧 Backend & APIs
-- [ ] Implement real backend API with Node.js/Express or SvelteKit server routes
-- [ ] Set up PostgreSQL/MySQL database with proper schema
-- [ ] Implement JWT-based authentication system
-- [ ] Add real-time WebSocket server for chat and live updates
-- [ ] Create file upload service with cloud storage (AWS S3/Cloudinary)
-- [ ] Implement email service for invitations and notifications
+- [x] **Implement real backend API** with Node.js/Express
+- [x] **Set up SQLite database** with proper schema
+- [x] **Implement JWT-based authentication** system
+- [x] **Add real-time WebSocket server** for chat and live updates
+- [x] **Create file upload service** with local storage
+- [ ] **Migrate to PostgreSQL/MySQL** for production
+- [ ] **Add cloud storage** integration (AWS S3/Cloudinary)
+- [ ] **Implement email service** for invitations and notifications
 
 ### 🛡️ Security & Authentication
 - [ ] Add proper password hashing (bcrypt)
@@ -142,7 +258,8 @@ The application will be available at **http://localhost:51975**
 - [ ] **Security testing** and vulnerability scanning
 
 ### 📦 DevOps & Deployment
-- [ ] **Docker containerization**
+- [x] **Docker containerization** with multi-service setup
+- [x] **Docker Compose** for easy development and deployment
 - [ ] **CI/CD pipeline** with GitHub Actions
 - [ ] **Environment management** (dev/staging/prod)
 - [ ] **Database migrations** system
