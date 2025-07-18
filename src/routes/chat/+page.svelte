@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, afterUpdate } from 'svelte';
   import { Send, Smile, Paperclip, Users, Settings } from 'lucide-svelte';
-  import { chatMessages, connectedUsers, chatStore, isConnected } from '$lib/stores/chat';
+  import { chatMessages, onlineUsers, chatStore, isConnected } from '$lib/stores/chat';
   import { currentUser } from '$lib/stores/auth';
   import ChatMessage from '$lib/components/ChatMessage.svelte';
 
@@ -76,7 +76,7 @@
       <h1 class="text-xl font-bold text-white">Community Chat</h1>
       <p class="text-dark-400 text-sm">
         {#if $isConnected}
-          {$connectedUsers.length} users online
+          {$onlineUsers.length} users online
         {:else}
           Connecting...
         {/if}
@@ -206,12 +206,12 @@
   <div class="w-64 bg-dark-900 border-l border-dark-800 flex flex-col">
     <div class="p-4 border-b border-dark-800">
       <h3 class="text-lg font-semibold text-white">Online Users</h3>
-      <p class="text-sm text-dark-400">{$connectedUsers.length} online</p>
+      <p class="text-sm text-dark-400">{$onlineUsers.length} online</p>
     </div>
     
     <div class="flex-1 overflow-y-auto p-4">
       <div class="space-y-3">
-        {#each $connectedUsers as user (user.id)}
+        {#each $onlineUsers as user (user.id)}
           <div class="flex items-center space-x-3">
             <div class="relative">
               <img
