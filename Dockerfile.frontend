@@ -32,9 +32,6 @@ RUN npm ci --only=production
 COPY --from=builder /app/build ./build
 COPY --from=builder /app/package.json ./
 
-# Install serve to run the built application
-RUN npm install -g serve
-
 # Set proper permissions
 RUN chown -R node:node /app
 USER node
@@ -43,4 +40,4 @@ USER node
 EXPOSE 3000
 
 # Start the application
-CMD ["serve", "-s", "build", "-l", "3000"]
+CMD ["node", "build"]

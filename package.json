@@ -11,10 +11,14 @@
     "dev:backend": "cd server && npm run dev",
     "start:backend": "cd server && npm start",
     "dev:full": "concurrently \"npm run dev:backend\" \"npm run dev\"",
-    "init:backend": "cd server && npm run init-db"
+    "init:backend": "cd server && npm run init-db",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:load": "node load-test.js"
   },
   "devDependencies": {
-    "@sveltejs/adapter-auto": "^3.0.0",
+    "@playwright/test": "^1.40.0",
+    "@sveltejs/adapter-node": "^5.0.0",
     "@sveltejs/kit": "^2.0.0",
     "@sveltejs/vite-plugin-svelte": "^4.0.0",
     "@types/node": "^22.0.0",

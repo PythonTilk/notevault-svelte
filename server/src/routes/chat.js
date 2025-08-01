@@ -105,7 +105,8 @@ router.post('/messages', authenticateToken, [
     VALUES (?, ?, ?, ?, ?)
   `, [messageId, content, req.user.id, channelId, replyToId], function(err) {
     if (err) {
-      return res.status(500).json({ error: 'Failed to send message' });
+      console.error('Chat message database error:', err);
+      return res.status(500).json({ error: 'Failed to send message', details: err.message });
     }
 
     // Get the created message with author info

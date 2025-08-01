@@ -157,61 +157,65 @@ const initDatabase = () => {
       const adminPassword = await bcrypt.hash('admin123', 10);
       const adminId = 'admin-' + Date.now();
       
-      db.run(`
-        INSERT OR IGNORE INTO users (id, username, email, password_hash, display_name, role)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `, [adminId, 'admin', 'admin@notevault.com', adminPassword, 'Administrator', 'admin'], (err) => {
-        if (err) {
-          console.error('Error creating admin user:', err);
-        } else {
-          console.log('Default admin user created (username: admin, password: admin123)');
-        }
-      });
-
-      // Insert demo user
+      // Hash demo password outside callback
       const demoPassword = await bcrypt.hash('demo123', 10);
       const demoId = 'demo-' + Date.now();
       
       db.run(`
         INSERT OR IGNORE INTO users (id, username, email, password_hash, display_name, role)
         VALUES (?, ?, ?, ?, ?, ?)
-      `, [demoId, 'demo', 'demo@notevault.com', demoPassword, 'Demo User', 'user'], (err) => {
+      `, [adminId, 'admin', 'admin@notevault.com', adminPassword, 'Administrator', 'admin'], (err) => {
         if (err) {
-          console.error('Error creating demo user:', err);
+          console.error('Error creating admin user:', err);
+          resolve();
+          return;
         } else {
-          console.log('Demo user created (username: demo, password: demo123)');
+          console.log('Default admin user created (username: admin, password: admin123)');
         }
 
-        // Create default announcements
-        const announcements = [
-          {
-            id: 'welcome-' + Date.now(),
-            title: 'Welcome to NoteVault!',
-            content: 'We\'re excited to have you on board. Explore the new canvas features and start organizing your ideas!',
-            priority: 'high',
-            authorId: adminId
-          },
-          {
-            id: 'features-' + Date.now(),
-            title: 'New Features Available',
-            content: 'Check out the new file management system, real-time chat, and workspace collaboration tools.',
-            priority: 'medium',
-            authorId: adminId
+        // Insert demo user
+        
+        db.run(`
+          INSERT OR IGNORE INTO users (id, username, email, password_hash, display_name, role)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `, [demoId, 'demo', 'demo@notevault.com', demoPassword, 'Demo User', 'user'], (err) => {
+          if (err) {
+            console.error('Error creating demo user:', err);
+          } else {
+            console.log('Demo user created (username: demo, password: demo123)');
           }
-        ];
 
-        announcements.forEach(announcement => {
-          db.run(`
-            INSERT OR IGNORE INTO announcements (id, title, content, author_id, priority, is_active)
-            VALUES (?, ?, ?, ?, ?, ?)
-          `, [announcement.id, announcement.title, announcement.content, announcement.authorId, announcement.priority, true], (err) => {
-            if (err) {
-              console.error('Error creating announcement:', err);
+          // Create default announcements (now after both users are created)
+          const announcements = [
+            {
+              id: 'welcome-' + Date.now(),
+              title: 'Welcome to NoteVault!',
+              content: 'We\'re excited to have you on board. Explore the new canvas features and start organizing your ideas!',
+              priority: 'high',
+              authorId: adminId
+            },
+            {
+              id: 'features-' + Date.now(),
+              title: 'New Features Available',
+              content: 'Check out the new file management system, real-time chat, and workspace collaboration tools.',
+              priority: 'medium',
+              authorId: adminId
             }
-          });
-        });
+          ];
 
-        resolve();
+          announcements.forEach(announcement => {
+            db.run(`
+              INSERT OR IGNORE INTO announcements (id, title, content, author_id, priority, is_active)
+              VALUES (?, ?, ?, ?, ?, ?)
+            `, [announcement.id, announcement.title, announcement.content, announcement.authorId, announcement.priority, true], (err) => {
+              if (err) {
+                console.error('Error creating announcement:', err);
+              }
+            });
+          });
+
+          resolve();
+        });
       });
     });
   });

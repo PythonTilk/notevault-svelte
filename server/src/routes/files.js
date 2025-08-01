@@ -166,9 +166,14 @@ router.post('/upload', authenticateToken, upload.single('file'), (req, res) => {
       isPublic
     ], function(err) {
       if (err) {
+        console.error('File upload database error:', err);
         // Clean up uploaded file
-        fs.unlinkSync(req.file.path);
-        return res.status(500).json({ error: 'Failed to save file record' });
+        try {
+          fs.unlinkSync(req.file.path);
+        } catch (unlinkErr) {
+          console.error('Failed to clean up file:', unlinkErr);
+        }
+        return res.status(500).json({ error: 'Failed to save file record', details: err.message });
       }
 
       res.status(201).json({
