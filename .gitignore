@@ -123,3 +123,22 @@ server/uploads/*
 test-results/
 playwright-report/
 playwright/.cache/
+
+# Configuration files (keep examples)
+config.toml
+docker-compose.override.yml
+
+# Backup files
+backups/
+*.backup
+*.bak
+
+# Production artifacts
+.env.production
+docker-secrets/
+ssl-certs/
+
+# Temporary files
+*.tmp
+*.temp
+*.cache
