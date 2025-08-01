@@ -26,44 +26,6 @@
  * ```
  */
 declare module '$env/static/private' {
-	export const NODE_ENV: string;
-	export const DATABASE_URL: string;
-	export const PORT: string;
-	export const HOST: string;
-	export const CORS_ORIGIN: string;
-	export const JWT_SECRET: string;
-	export const UPLOAD_DIR: string;
-	export const MAX_FILE_SIZE: string;
-	export const ALLOWED_FILE_TYPES: string;
-	export const CDN_PROVIDER: string;
-	export const GOOGLE_CLIENT_ID: string;
-	export const GOOGLE_CLIENT_SECRET: string;
-	export const GITHUB_CLIENT_ID: string;
-	export const GITHUB_CLIENT_SECRET: string;
-	export const DISCORD_CLIENT_ID: string;
-	export const DISCORD_CLIENT_SECRET: string;
-	export const SMTP_HOST: string;
-	export const SMTP_PORT: string;
-	export const SMTP_SECURE: string;
-	export const SMTP_USER: string;
-	export const SMTP_PASS: string;
-	export const REDIS_URL: string;
-	export const SESSION_SECRET: string;
-	export const RATE_LIMIT_WINDOW: string;
-	export const RATE_LIMIT_MAX: string;
-	export const WEBHOOK_SECRET: string;
-	export const SLACK_BOT_TOKEN: string;
-	export const DISCORD_BOT_TOKEN: string;
-	export const ENABLE_METRICS: string;
-	export const SENTRY_DSN: string;
-	export const ENABLE_REGISTRATIONS: string;
-	export const ENABLE_2FA: string;
-	export const ENABLE_OAUTH: string;
-	export const ENABLE_FILE_UPLOADS: string;
-	export const BACKUP_ENABLED: string;
-	export const BACKUP_SCHEDULE: string;
-	export const BACKUP_RETENTION_DAYS: string;
-	export const BACKUP_STORAGE_PATH: string;
 	export const SHELL: string;
 	export const npm_command: string;
 	export const COREPACK_ENABLE_AUTO_PIN: string;
@@ -168,7 +130,13 @@ declare module '$env/static/private' {
 	export const KITTY_INSTALLATION_DIR: string;
 	export const npm_node_execpath: string;
 	export const LC_NUMERIC: string;
-	export const VITE_USER_NODE_ENV: string;
+	export const TEST: string;
+	export const VITEST: string;
+	export const NODE_ENV: string;
+	export const PROD: string;
+	export const DEV: string;
+	export const BASE_URL: string;
+	export const MODE: string;
 }
 
 /**
@@ -200,44 +168,6 @@ declare module '$env/static/public' {
  */
 declare module '$env/dynamic/private' {
 	export const env: {
-		NODE_ENV: string;
-		DATABASE_URL: string;
-		PORT: string;
-		HOST: string;
-		CORS_ORIGIN: string;
-		JWT_SECRET: string;
-		UPLOAD_DIR: string;
-		MAX_FILE_SIZE: string;
-		ALLOWED_FILE_TYPES: string;
-		CDN_PROVIDER: string;
-		GOOGLE_CLIENT_ID: string;
-		GOOGLE_CLIENT_SECRET: string;
-		GITHUB_CLIENT_ID: string;
-		GITHUB_CLIENT_SECRET: string;
-		DISCORD_CLIENT_ID: string;
-		DISCORD_CLIENT_SECRET: string;
-		SMTP_HOST: string;
-		SMTP_PORT: string;
-		SMTP_SECURE: string;
-		SMTP_USER: string;
-		SMTP_PASS: string;
-		REDIS_URL: string;
-		SESSION_SECRET: string;
-		RATE_LIMIT_WINDOW: string;
-		RATE_LIMIT_MAX: string;
-		WEBHOOK_SECRET: string;
-		SLACK_BOT_TOKEN: string;
-		DISCORD_BOT_TOKEN: string;
-		ENABLE_METRICS: string;
-		SENTRY_DSN: string;
-		ENABLE_REGISTRATIONS: string;
-		ENABLE_2FA: string;
-		ENABLE_OAUTH: string;
-		ENABLE_FILE_UPLOADS: string;
-		BACKUP_ENABLED: string;
-		BACKUP_SCHEDULE: string;
-		BACKUP_RETENTION_DAYS: string;
-		BACKUP_STORAGE_PATH: string;
 		SHELL: string;
 		npm_command: string;
 		COREPACK_ENABLE_AUTO_PIN: string;
@@ -342,7 +272,13 @@ declare module '$env/dynamic/private' {
 		KITTY_INSTALLATION_DIR: string;
 		npm_node_execpath: string;
 		LC_NUMERIC: string;
-		VITE_USER_NODE_ENV: string;
+		TEST: string;
+		VITEST: string;
+		NODE_ENV: string;
+		PROD: string;
+		DEV: string;
+		BASE_URL: string;
+		MODE: string;
 		[key: `PUBLIC_${string}`]: undefined;
 		[key: `${string}`]: string | undefined;
 	}
