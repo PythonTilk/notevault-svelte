@@ -187,9 +187,7 @@ services:
     image: nginx:alpine
     container_name: notevault-nginx
     volumes:
-      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./docker/nginx/sites-enabled:/etc/nginx/sites-enabled:ro
-      - ./docker/nginx/ssl:/etc/nginx/ssl:ro
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - nginx_logs:/var/log/nginx
       - backend_uploads:/var/www/uploads:ro
     ports:
