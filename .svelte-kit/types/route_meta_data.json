@@ -1,12 +1,18 @@
 {
 	"/": [],
 	"/admin": [],
+	"/admin/analytics": [],
+	"/admin/backups": [],
 	"/admin/users": [],
+	"/bots": [],
+	"/calendar": [],
 	"/chat": [],
 	"/files": [],
 	"/login": [],
 	"/notifications": [],
 	"/register": [],
 	"/settings": [],
+	"/settings/integrations": [],
+	"/settings/integrations/webhooks/new": [],
 	"/workspaces/[id]": []
 }

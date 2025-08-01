@@ -1,8 +1,29 @@
-import { writable, derived } from 'svelte/store';
+import { writable, derived, type Writable, type Readable } from 'svelte/store';
 import { browser } from '$app/environment';
 
+// Language configuration type
+interface LanguageConfig {
+  name: string;
+  flag: string;
+  rtl: boolean;
+}
+
+// Translation parameters type
+interface TranslationParams {
+  [key: string]: string | number;
+  count?: number;
+}
+
+// Translation value type
+type TranslationValue = string | { [key: string]: string };
+
+// Translations object type
+interface Translations {
+  [key: string]: TranslationValue | Translations;
+}
+
 // Available languages
-export const languages = {
+export const languages: Record<string, LanguageConfig> = {
   en: { name: 'English', flag: '🇺🇸', rtl: false },
   es: { name: 'Español', flag: '🇪🇸', rtl: false },
   fr: { name: 'Français', flag: '🇫🇷', rtl: false },
@@ -21,7 +42,7 @@ export const languages = {
 const DEFAULT_LANGUAGE = 'en';
 
 // Get browser language or stored preference
-function getInitialLanguage() {
+function getInitialLanguage(): string {
   if (browser) {
     // Check localStorage first
     const stored = localStorage.getItem('notevault-language');
@@ -40,15 +61,15 @@ function getInitialLanguage() {
 }
 
 // Current language store
-export const currentLanguage = writable(getInitialLanguage());
+export const currentLanguage: Writable<string> = writable(getInitialLanguage());
 
 // Translations cache
-const translationsCache = new Map();
+const translationsCache = new Map<string, Translations>();
 
 // Load translations for a language
-async function loadTranslations(lang) {
+async function loadTranslations(lang: string): Promise<Translations> {
   if (translationsCache.has(lang)) {
-    return translationsCache.get(lang);
+    return translationsCache.get(lang)!;
   }
   
   try {
@@ -70,7 +91,7 @@ async function loadTranslations(lang) {
 }
 
 // Current translations store
-export const translations = writable({});
+export const translations: Writable<Translations> = writable({});
 
 // Load translations when language changes
 currentLanguage.subscribe(async (lang) => {
@@ -87,11 +108,14 @@ currentLanguage.subscribe(async (lang) => {
   }
 });
 
+// Translation function type
+type TranslationFunction = (key: string, params?: TranslationParams, fallback?: string) => string;
+
 // Translation function
-export const t = derived(
+export const t: Readable<TranslationFunction> = derived(
   [currentLanguage, translations],
   ([$currentLanguage, $translations]) => {
-    return (key, params = {}, fallback = key) => {
+    return (key: string, params: TranslationParams = {}, fallback: string = key): string => {
       // Get nested translation value
       const value = getNestedValue($translations, key);
       
@@ -121,21 +145,24 @@ export const t = derived(
 );
 
 // Get nested object value by dot notation
-function getNestedValue(obj, key) {
+function getNestedValue(obj: any, key: string): any {
   return key.split('.').reduce((current, part) => current?.[part], obj);
 }
 
 // Simple string interpolation
-function interpolate(str, params) {
+function interpolate(str: string, params: TranslationParams): string {
   return str.replace(/\{\{(\w+)\}\}/g, (match, key) => {
-    return params[key] !== undefined ? params[key] : match;
+    return params[key] !== undefined ? String(params[key]) : match;
   });
 }
 
+// Plural rule function type
+type PluralRule = (n: number) => string;
+
 // Get plural key based on language rules
-function getPluralKey(count, language) {
+function getPluralKey(count: number, language: string): string {
   // Simplified pluralization rules
-  const pluralRules = {
+  const pluralRules: Record<string, PluralRule> = {
     en: (n) => n === 1 ? 'one' : 'other',
     es: (n) => n === 1 ? 'one' : 'other',
     fr: (n) => n <= 1 ? 'one' : 'other',
@@ -171,7 +198,7 @@ function getPluralKey(count, language) {
 }
 
 // Change language
-export function setLanguage(lang) {
+export function setLanguage(lang: string): void {
   if (languages[lang]) {
     currentLanguage.set(lang);
   } else {
@@ -180,13 +207,13 @@ export function setLanguage(lang) {
 }
 
 // Get current language info
-export const currentLanguageInfo = derived(
+export const currentLanguageInfo: Readable<LanguageConfig> = derived(
   currentLanguage,
   ($currentLanguage) => languages[$currentLanguage] || languages[DEFAULT_LANGUAGE]
 );
 
 // Check if current language is RTL
-export const isRTL = derived(
+export const isRTL: Readable<boolean> = derived(
   currentLanguageInfo,
   ($currentLanguageInfo) => $currentLanguageInfo.rtl
 );
@@ -196,10 +223,10 @@ export const formatters = derived(
   currentLanguage,
   ($currentLanguage) => ({
     // Date formatter
-    date: (date, options = {}) => {
+    date: (date: Date, options: Intl.DateTimeFormatOptions = {}) => {
       if (!browser) return date.toString();
       
-      const defaultOptions = { 
+      const defaultOptions: Intl.DateTimeFormatOptions = { 
         year: 'numeric', 
         month: 'long', 
         day: 'numeric' 
@@ -212,10 +239,10 @@ export const formatters = derived(
     },
     
     // Time formatter
-    time: (date, options = {}) => {
+    time: (date: Date, options: Intl.DateTimeFormatOptions = {}) => {
       if (!browser) return date.toString();
       
-      const defaultOptions = { 
+      const defaultOptions: Intl.DateTimeFormatOptions = { 
         hour: '2-digit', 
         minute: '2-digit' 
       };
@@ -227,14 +254,14 @@ export const formatters = derived(
     },
     
     // Number formatter
-    number: (number, options = {}) => {
+    number: (number: number, options: Intl.NumberFormatOptions = {}) => {
       if (!browser) return number.toString();
       
       return new Intl.NumberFormat($currentLanguage, options).format(number);
     },
     
     // Currency formatter
-    currency: (amount, currency = 'USD', options = {}) => {
+    currency: (amount: number, currency = 'USD', options: Intl.NumberFormatOptions = {}) => {
       if (!browser) return `${currency} ${amount}`;
       
       return new Intl.NumberFormat($currentLanguage, {
@@ -245,7 +272,7 @@ export const formatters = derived(
     },
     
     // Relative time formatter
-    relativeTime: (value, unit = 'second') => {
+    relativeTime: (value: number, unit: Intl.RelativeTimeFormatUnit = 'second') => {
       if (!browser) return `${value} ${unit}${value !== 1 ? 's' : ''} ago`;
       
       try {
@@ -259,12 +286,22 @@ export const formatters = derived(
   })
 );
 
+// Translation validation result type
+interface ValidationResult {
+  missing: string[];
+  extra: string[];
+}
+
 // Translation validation (for development)
-export function validateTranslations(baseTranslations, targetTranslations, language) {
-  const missing = [];
-  const extra = [];
+export function validateTranslations(
+  baseTranslations: Translations, 
+  targetTranslations: Translations, 
+  language: string
+): ValidationResult {
+  const missing: string[] = [];
+  const extra: string[] = [];
   
-  function checkKeys(base, target, path = '') {
+  function checkKeys(base: any, target: any, path = '') {
     for (const key in base) {
       const currentPath = path ? `${path}.${key}` : key;
       
@@ -327,7 +364,7 @@ export const COMMON_KEYS = {
   TODAY: 'time.today',
   YESTERDAY: 'time.yesterday',
   TOMORROW: 'time.tomorrow'
-};
+} as const;
 
 export default {
   t,
