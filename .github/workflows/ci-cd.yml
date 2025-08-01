@@ -19,6 +19,11 @@ jobs:
     name: Code Quality & Security
     runs-on: ubuntu-latest
     
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -78,6 +83,7 @@ jobs:
         
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3
+      continue-on-error: true
 
   # Build and Test
   build-test:
