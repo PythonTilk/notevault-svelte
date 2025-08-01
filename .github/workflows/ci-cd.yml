@@ -227,6 +227,16 @@ jobs:
         build-args: |
           VITE_API_URL=${{ secrets.VITE_API_URL || 'http://localhost:3001/api' }}
           
+    - name: Debug backend files
+      if: matrix.component == 'backend'
+      run: |
+        echo "Current directory contents:"
+        ls -la
+        echo "Server directory contents:"
+        ls -la server/
+        echo "Looking for Dockerfile.production:"
+        find . -name "*Dockerfile*" -type f
+        
     - name: Build and push Docker image (Backend)
       if: matrix.component == 'backend'
       uses: docker/build-push-action@v5
