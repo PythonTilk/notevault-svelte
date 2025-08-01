@@ -15,12 +15,25 @@ services:
       - DB_PATH=/app/database/notevault.db
       - JWT_SECRET=docker-jwt-secret-change-in-production
       - CORS_ORIGIN=http://localhost:3000,http://frontend:3000
+      # Real-time collaboration
+      - ENABLE_WEBSOCKETS=true
+      - SOCKET_IO_CORS_ORIGIN=http://localhost:3000,http://frontend:3000
+      # Analytics and monitoring
+      - ENABLE_ANALYTICS=true
+      - REDIS_URL=redis://redis:6379
+      # S3 Configuration for backups
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - S3_BUCKET=${S3_BUCKET:-notevault-backups}
     volumes:
       - backend_data:/app/database
       - uploads_data:/app/uploads
     networks:
       - notevault-network
     restart: unless-stopped
+    depends_on:
+      - redis
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
       interval: 30s
@@ -38,11 +51,28 @@ services:
     environment:
       - NODE_ENV=production
       - VITE_API_URL=http://localhost:3001
+      # WebSocket configuration for real-time features
+      - VITE_WS_URL=ws://localhost:3001
+      - VITE_ENABLE_COLLABORATION=true
     depends_on:
       - backend
+      - redis
     networks:
       - notevault-network
     restart: unless-stopped
+
+  # Redis for real-time collaboration and caching
+  redis:
+    image: redis:7-alpine
+    container_name: notevault-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - notevault-network
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
 
   # Nginx Reverse Proxy (Optional - for production)
   nginx:
@@ -55,6 +85,7 @@ services:
     depends_on:
       - frontend
       - backend
+      - redis
     networks:
       - notevault-network
     restart: unless-stopped
@@ -63,6 +94,8 @@ volumes:
   backend_data:
     driver: local
   uploads_data:
+    driver: local
+  redis_data:
     driver: local
 
 networks:
