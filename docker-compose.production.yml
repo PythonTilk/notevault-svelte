@@ -158,7 +158,7 @@ services:
   frontend:
     build:
       context: .
-      dockerfile: Dockerfile.production
+      dockerfile: Dockerfile.frontend
       args:
         VITE_API_URL: ${BACKEND_URL:-http://localhost:3001}/api
     container_name: notevault-frontend
