@@ -70,7 +70,8 @@ const limiter = rateLimit({
   message: 'Too many requests from this IP, please try again later.'
 });
 
-app.use('/api/', limiter);
+// Temporarily disable rate limiter for debugging
+// app.use('/api/', limiter);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -81,14 +82,7 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'healthy', 
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime()
-  });
-});
+// Duplicate health endpoint removed
 
 // API Routes
 app.use('/api/auth', authRoutes);
