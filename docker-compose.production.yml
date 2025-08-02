@@ -66,9 +66,9 @@ services:
       PORT: 3001
       DATABASE_URL: postgresql://notevault:${DB_PASSWORD:-secure_db_password}@db:5432/notevault
       REDIS_URL: redis://:${REDIS_PASSWORD:-secure_redis_password}@redis:6379
-      JWT_SECRET: ${JWT_SECRET}
-      SESSION_SECRET: ${SESSION_SECRET}
-      CSRF_SECRET: ${CSRF_SECRET}
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-this-in-production-min-256-bits}
+      SESSION_SECRET: ${SESSION_SECRET:-another-super-secret-key-for-sessions-change-this-too}
+      CSRF_SECRET: ${CSRF_SECRET:-csrf-secret-key-change-this-in-production}
       CORS_ORIGIN: ${FRONTEND_URL:-http://localhost:3000}
       BASE_URL: ${BACKEND_URL:-http://localhost:3001}
       
