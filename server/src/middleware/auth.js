@@ -26,7 +26,8 @@ export const authenticateToken = (req, res, next) => {
         email: dbUser.email,
         displayName: dbUser.display_name,
         avatar: dbUser.avatar,
-        role: dbUser.role
+        role: dbUser.role,
+        forcePasswordChange: dbUser.force_password_change === 1
       };
       next();
     });
@@ -71,7 +72,8 @@ export const optionalAuth = (req, res, next) => {
             email: dbUser.email,
             displayName: dbUser.display_name,
             avatar: dbUser.avatar,
-            role: dbUser.role
+            role: dbUser.role,
+            forcePasswordChange: dbUser.force_password_change === 1
           };
         }
         next();

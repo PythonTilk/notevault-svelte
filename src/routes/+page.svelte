@@ -4,12 +4,12 @@
   import { workspaces, workspaceStore } from '$lib/stores/workspaces';
   import { chatMessages, chatStore } from '$lib/stores/chat';
   import { currentUser } from '$lib/stores/auth';
+  import { showCreateWorkspaceModal } from '$lib/stores/modals';
   import { goto } from '$app/navigation';
   import { api } from '$lib/api';
   import WorkspaceCard from '$lib/components/WorkspaceCard.svelte';
 
   let viewMode: 'grid' | 'list' = 'grid';
-  let showCreateModal = false;
   let newWorkspaceName = '';
   let newWorkspaceDescription = '';
   let newWorkspaceColor = '#ef4444';
@@ -90,7 +90,7 @@
       isPublic: newWorkspaceIsPublic
     });
 
-    showCreateModal = false;
+    showCreateWorkspaceModal.set(false);
     newWorkspaceName = '';
     newWorkspaceDescription = '';
     newWorkspaceColor = '#ef4444';
@@ -136,7 +136,7 @@
     <div class="flex items-center space-x-4">
       <button
         class="btn-primary"
-        on:click={() => showCreateModal = true}
+        on:click={() => showCreateWorkspaceModal.set(true)}
       >
         <Plus class="w-4 h-4 mr-2" />
         New Workspace
@@ -197,7 +197,7 @@
             <p class="text-dark-400 mb-4">Create your first workspace to get started</p>
             <button
               class="btn-primary"
-              on:click={() => showCreateModal = true}
+              on:click={() => showCreateWorkspaceModal.set(true)}
             >
               <Plus class="w-4 h-4 mr-2" />
               Create Workspace
@@ -296,7 +296,7 @@
 </main>
 
 <!-- Create Workspace Modal -->
-{#if showCreateModal}
+{#if $showCreateWorkspaceModal}
   <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
     <div class="bg-dark-900 rounded-lg border border-dark-800 w-full max-w-md">
       <div class="p-6">
@@ -361,7 +361,7 @@
             <button
               type="button"
               class="btn-secondary"
-              on:click={() => showCreateModal = false}
+              on:click={() => showCreateWorkspaceModal.set(false)}
             >
               Cancel
             </button>

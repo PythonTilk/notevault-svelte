@@ -11,6 +11,7 @@
 	"/login": [],
 	"/notifications": [],
 	"/register": [],
+	"/search": [],
 	"/settings": [],
 	"/settings/integrations": [],
 	"/settings/integrations/webhooks/new": [],

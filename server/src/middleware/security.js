@@ -1,6 +1,7 @@
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import crypto from 'crypto';
+import { auditLogger, SECURITY_EVENTS } from '../utils/logger.js';
 
 // Enhanced rate limiting with different limits for different endpoints
 export const createRateLimiter = (options = {}) => {
@@ -14,6 +15,17 @@ export const createRateLimiter = (options = {}) => {
     standardHeaders: true,
     legacyHeaders: false,
     handler: (req, res) => {
+      // Log rate limit exceeded event
+      auditLogger.logSecurityEvent(SECURITY_EVENTS.RATE_LIMIT_EXCEEDED, {
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        url: req.url,
+        method: req.method,
+        userId: req.user?.id,
+        limit: options.max || 100,
+        window: options.windowMs || 15 * 60 * 1000
+      });
+
       res.status(429).json({
         error: 'Too many requests from this IP, please try again later.',
         retryAfter: Math.ceil((options.windowMs || 15 * 60 * 1000) / 1000)
@@ -50,25 +62,38 @@ export const uploadLimiter = createRateLimiter({
   max: 50 // 50 uploads per hour per IP
 });
 
-// CSRF Protection Middleware
+// CSRF Protection Middleware (JWT-compatible)
 export const csrfProtection = (req, res, next) => {
   // Skip CSRF for GET, HEAD, OPTIONS requests
   if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
     return next();
   }
 
-  // Skip CSRF for webhook endpoints
-  if (req.path.startsWith('/api/webhooks/')) {
+  // Skip CSRF for webhook endpoints and auth endpoints (login/register)
+  if (req.path.startsWith('/api/webhooks/') || 
+      req.path === '/api/auth/login' ||
+      req.path === '/api/auth/register' ||
+      req.path.startsWith('/api/auth/')) {
     return next();
   }
 
-  const token = req.headers['x-csrf-token'] || req.body._csrf;
-  const sessionToken = req.session?.csrfToken;
+  // For JWT-based auth, check for custom CSRF header
+  const csrfToken = req.headers['x-csrf-token'];
+  const origin = req.headers.origin;
+  const referer = req.headers.referer;
 
-  if (!token || !sessionToken || token !== sessionToken) {
+  // Basic origin/referer check as CSRF protection
+  const allowedOrigins = process.env.CORS_ORIGIN ? 
+    process.env.CORS_ORIGIN.split(',').map(o => o.trim()) : 
+    ['http://localhost:5173', 'http://localhost:50063', 'http://localhost:56770'];
+
+  const hasValidOrigin = origin && allowedOrigins.includes(origin);
+  const hasValidReferer = referer && allowedOrigins.some(allowed => referer.startsWith(allowed));
+
+  if (!hasValidOrigin && !hasValidReferer) {
     return res.status(403).json({
-      error: 'Invalid CSRF token',
-      code: 'CSRF_TOKEN_MISMATCH'
+      error: 'Invalid origin - possible CSRF attack',
+      code: 'CSRF_INVALID_ORIGIN'
     });
   }
 
@@ -89,7 +114,7 @@ export const securityHeaders = helmet({
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https:", "blob:"],
       scriptSrc: ["'self'"],
-      connectSrc: ["'self'", "ws:", "wss:"],
+      connectSrc: ["'self'", "ws:", "wss:", "http://localhost:3001", "http://localhost:50063", "http://localhost:5173"],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
       frameSrc: ["'none'"],

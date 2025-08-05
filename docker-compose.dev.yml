@@ -14,10 +14,10 @@ services:
       - PORT=3001
       - DB_PATH=/app/database/notevault.db
       - JWT_SECRET=dev-jwt-secret-change-in-production
-      - CORS_ORIGIN=http://localhost:5173,http://localhost:3000
+      - CORS_ORIGIN=http://localhost:5173,http://localhost:3000,http://localhost:50063,http://localhost:56770
       # Real-time collaboration
       - ENABLE_WEBSOCKETS=true
-      - SOCKET_IO_CORS_ORIGIN=http://localhost:5173,http://localhost:3000
+      - SOCKET_IO_CORS_ORIGIN=http://localhost:5173,http://localhost:3000,http://localhost:50063,http://localhost:56770
       # Analytics and monitoring
       - ENABLE_ANALYTICS=true
       - REDIS_URL=redis://redis:6379

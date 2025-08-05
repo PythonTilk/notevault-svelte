@@ -44,7 +44,7 @@
   }
 
   function handleReaction(event: CustomEvent<{ messageId: string; emoji: string }>) {
-    chatStore.addReaction(event.detail.messageId, event.detail.emoji, $currentUser?.id || '1');
+    chatStore.addReaction(event.detail.messageId, event.detail.emoji);
   }
 
   function handleReply(event: CustomEvent<{ message: any }>) {

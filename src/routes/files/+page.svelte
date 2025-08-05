@@ -11,51 +11,7 @@
   let showUploadModal = false;
   let dragOver = false;
 
-  // Mock files
-  const mockFiles: FileItem[] = [
-    {
-      id: '1',
-      name: 'Project Proposal.pdf',
-      type: 'application/pdf',
-      size: 2048576,
-      url: '/files/project-proposal.pdf',
-      uploaderId: '1',
-      createdAt: new Date(Date.now() - 86400000),
-      isPublic: false
-    },
-    {
-      id: '2',
-      name: 'Design Mockups.zip',
-      type: 'application/zip',
-      size: 15728640,
-      url: '/files/design-mockups.zip',
-      uploaderId: '1',
-      workspaceId: '1',
-      createdAt: new Date(Date.now() - 172800000),
-      isPublic: true
-    },
-    {
-      id: '3',
-      name: 'Team Photo.jpg',
-      type: 'image/jpeg',
-      size: 3145728,
-      url: '/files/team-photo.jpg',
-      uploaderId: '2',
-      createdAt: new Date(Date.now() - 259200000),
-      isPublic: true
-    },
-    {
-      id: '4',
-      name: 'Meeting Recording.mp4',
-      type: 'video/mp4',
-      size: 52428800,
-      url: '/files/meeting-recording.mp4',
-      uploaderId: '1',
-      workspaceId: '2',
-      createdAt: new Date(Date.now() - 345600000),
-      isPublic: false
-    }
-  ];
+  let loadError: string | null = null;
 
   let isLoading = true;
 
@@ -65,6 +21,8 @@
 
   async function loadFiles() {
     try {
+      isLoading = true;
+      loadError = null;
       const data = await api.getFiles({ limit: 100 });
       files = data.map((file: any) => ({
         id: file.id,
@@ -79,8 +37,8 @@
       }));
     } catch (error) {
       console.error('Failed to load files:', error);
-      // Fallback to mock data on error
-      files = mockFiles;
+      loadError = error instanceof Error ? error.message : 'Failed to load files';
+      files = [];
     } finally {
       isLoading = false;
     }
@@ -146,37 +104,80 @@
     handleFileUpload(droppedFiles);
   }
 
-  function handleFileUpload(uploadedFiles: File[]) {
-    // Mock file upload
-    uploadedFiles.forEach(file => {
-      const newFile: FileItem = {
-        id: Date.now().toString() + Math.random(),
-        name: file.name,
-        type: file.type,
-        size: file.size,
-        url: URL.createObjectURL(file),
-        uploaderId: '1',
-        createdAt: new Date(),
-        isPublic: false
-      };
-      files = [newFile, ...files];
-    });
+  async function handleFileUpload(uploadedFiles: File[]) {
+    for (const file of uploadedFiles) {
+      try {
+        isLoading = true;
+        const uploadedFile = await api.uploadFile(file, undefined, false);
+        
+        const newFile: FileItem = {
+          id: uploadedFile.id,
+          name: uploadedFile.name,
+          type: uploadedFile.type,
+          size: uploadedFile.size,
+          url: api.getFileDownloadUrl(uploadedFile.id),
+          uploaderId: uploadedFile.uploadedBy.id,
+          workspaceId: uploadedFile.workspaceId,
+          createdAt: new Date(uploadedFile.createdAt),
+          isPublic: uploadedFile.isPublic
+        };
+        
+        files = [newFile, ...files];
+      } catch (error) {
+        console.error('Failed to upload file:', file.name, error);
+        // You could add a toast notification here
+      }
+    }
+    isLoading = false;
   }
 
   function downloadFile(file: FileItem) {
-    // Mock download
-    console.log('Downloading:', file.name);
+    // Create a download link and trigger download
+    const downloadUrl = api.getFileDownloadUrl(file.id);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = file.name;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   }
 
-  function shareFile(file: FileItem) {
-    // Mock share
-    console.log('Sharing:', file.name);
+  async function shareFile(file: FileItem) {
+    const shareUrl = `${window.location.origin}/files/${file.id}`;
+    
+    if (navigator.share) {
+      // Use native sharing if available
+      try {
+        await navigator.share({
+          title: file.name,
+          text: `Check out this file: ${file.name}`,
+          url: shareUrl
+        });
+      } catch (error) {
+        console.log('Share canceled or failed:', error);
+      }
+    } else {
+      // Fallback to copying URL to clipboard
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        // You could show a toast notification here
+        console.log('File URL copied to clipboard');
+      } catch (error) {
+        console.error('Failed to copy URL:', error);
+      }
+    }
   }
 
-  function deleteFile(fileId: string) {
-    files = files.filter(f => f.id !== fileId);
-    selectedFiles.delete(fileId);
-    selectedFiles = selectedFiles;
+  async function deleteFile(fileId: string) {
+    try {
+      await api.deleteFile(fileId);
+      files = files.filter(f => f.id !== fileId);
+      selectedFiles.delete(fileId);
+      selectedFiles = selectedFiles;
+    } catch (error) {
+      console.error('Failed to delete file:', error);
+      // You could add a toast notification here
+    }
   }
 
   $: filteredFiles = files.filter(file =>
@@ -272,7 +273,32 @@
   on:dragleave={handleDragLeave}
   on:drop={handleDrop}
 >
-  {#if filteredFiles.length === 0}
+  {#if isLoading}
+    <div class="flex items-center justify-center h-full">
+      <div class="text-center">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500 mx-auto mb-4"></div>
+        <p class="text-dark-400">Loading files...</p>
+      </div>
+    </div>
+  {:else if loadError}
+    <div class="flex items-center justify-center h-full">
+      <div class="text-center">
+        <div class="w-16 h-16 bg-red-600/20 rounded-full flex items-center justify-center mx-auto mb-4">
+          <svg class="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+        </div>
+        <h3 class="text-lg font-medium text-white mb-2">Failed to load files</h3>
+        <p class="text-dark-400 mb-4">{loadError}</p>
+        <button
+          class="btn-primary"
+          on:click={loadFiles}
+        >
+          Try Again
+        </button>
+      </div>
+    </div>
+  {:else if filteredFiles.length === 0}
     <div class="flex items-center justify-center h-full">
       <div class="text-center">
         <Upload class="w-16 h-16 text-dark-600 mx-auto mb-4" />

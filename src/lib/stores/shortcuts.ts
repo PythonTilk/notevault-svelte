@@ -1,8 +1,25 @@
 import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
 
+// TypeScript interfaces
+export interface ShortcutAction {
+  action: string;
+  description: string;
+  category: string;
+}
+
+export interface ShortcutOptions {
+  preventDefault?: boolean;
+  stopPropagation?: boolean;
+  target?: EventTarget;
+  enabled?: boolean;
+  allowInInputs?: boolean;
+}
+
+export type ShortcutMap = Record<string, ShortcutAction>;
+
 // Default keyboard shortcuts
-export const defaultShortcuts = {
+export const defaultShortcuts: ShortcutMap = {
   // Navigation
   'mod+k': { 
     action: 'command-palette', 
@@ -24,7 +41,7 @@ export const defaultShortcuts = {
     description: 'Toggle right panel',
     category: 'Navigation'
   },
-  'mod+shift+f': { 
+  'mod+shift+d': { 
     action: 'focus-mode', 
     description: 'Toggle focus mode',
     category: 'Navigation'
@@ -256,13 +273,13 @@ function getInitialShortcuts() {
 }
 
 // Create shortcuts store
-export const shortcuts = writable(getInitialShortcuts());
+export const shortcuts = writable<ShortcutMap>(getInitialShortcuts());
 
 // Active shortcuts listeners
-const activeListeners = new Map();
+const activeListeners = new Map<string, EventListener>();
 
 // Normalize key combination
-function normalizeKey(key) {
+function normalizeKey(key: string): string {
   return key.toLowerCase()
     .replace(/\s+/g, '')
     .replace(/cmd|command/g, 'mod')
@@ -273,7 +290,7 @@ function normalizeKey(key) {
 }
 
 // Check if key combination matches
-function matchesShortcut(event, shortcut) {
+function matchesShortcut(event: KeyboardEvent, shortcut: string): boolean {
   const keys = shortcut.split('+');
   const hasModifier = keys.includes('mod');
   const hasShift = keys.includes('shift');
@@ -297,23 +314,29 @@ function matchesShortcut(event, shortcut) {
 }
 
 // Register shortcut listener
-export function registerShortcut(shortcutKey, callback, options = {}) {
+export function registerShortcut(
+  shortcutKey: string, 
+  callback: (event: KeyboardEvent) => void, 
+  options: ShortcutOptions = {}
+): () => void {
   if (!browser) return () => {};
 
   const { 
     preventDefault = true, 
     stopPropagation = true,
     target = document,
-    enabled = true 
+    enabled = true,
+    allowInInputs = false
   } = options;
 
   const normalizedKey = normalizeKey(shortcutKey);
   
-  const handler = (event) => {
+  const handler = (event: KeyboardEvent) => {
     if (!enabled) return;
     
     // Skip if typing in input fields (unless explicitly allowed)
-    if (!options.allowInInputs && 
+    if (!allowInInputs && 
+        event.target instanceof Element &&
         ['input', 'textarea', 'select'].includes(event.target.tagName.toLowerCase())) {
       return;
     }
@@ -340,8 +363,11 @@ export function registerShortcut(shortcutKey, callback, options = {}) {
 }
 
 // Register multiple shortcuts at once
-export function registerShortcuts(shortcutMap, options = {}) {
-  const cleanupFunctions = [];
+export function registerShortcuts(
+  shortcutMap: Record<string, (event: KeyboardEvent) => void>, 
+  options: ShortcutOptions = {}
+): () => void {
+  const cleanupFunctions: (() => void)[] = [];
   
   Object.entries(shortcutMap).forEach(([key, callback]) => {
     const cleanup = registerShortcut(key, callback, options);
@@ -355,7 +381,7 @@ export function registerShortcuts(shortcutMap, options = {}) {
 }
 
 // Update shortcut configuration
-export function updateShortcut(oldKey, newKey, action) {
+export function updateShortcut(oldKey: string, newKey: string, action: string): void {
   if (!browser) return;
 
   shortcuts.update(current => {
@@ -370,13 +396,13 @@ export function updateShortcut(oldKey, newKey, action) {
     if (newKey && action) {
       updated[newKey] = {
         action,
-        description: action.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+        description: action.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
         category: 'Custom'
       };
     }
 
     // Save to localStorage
-    const customShortcuts = {};
+    const customShortcuts: ShortcutMap = {};
     Object.entries(updated).forEach(([key, value]) => {
       if (!defaultShortcuts[key] || 
           JSON.stringify(value) !== JSON.stringify(defaultShortcuts[key])) {

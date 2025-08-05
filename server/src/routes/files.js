@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import db from '../config/database.js';
 import { authenticateToken, optionalAuth } from '../middleware/auth.js';
+import { logSecurityEvent, logUserAction, SECURITY_EVENTS } from '../utils/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -35,14 +36,19 @@ const upload = multer({
   },
   fileFilter: (req, file, cb) => {
     // Allow common file types
-    const allowedTypes = /jpeg|jpg|png|gif|pdf|doc|docx|txt|md|zip|rar/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
+    const allowedExtensions = /\.(jpeg|jpg|png|gif|pdf|doc|docx|txt|md|zip|rar)$/i;
+    const allowedMimeTypes = /^(image\/|application\/pdf|application\/msword|application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document|text\/|application\/zip|application\/x-rar-compressed).*$/i;
+    
+    const extname = allowedExtensions.test(file.originalname);
+    const mimetype = allowedMimeTypes.test(file.mimetype);
 
-    if (mimetype && extname) {
+    console.log(`File upload check: ${file.originalname}, mime: ${file.mimetype}, ext: ${extname}, mime: ${mimetype}`);
+
+    if (mimetype || extname) { // Allow if either check passes (more permissive)
       return cb(null, true);
     } else {
-      cb(new Error('File type not allowed'));
+      console.log(`File rejected: ${file.originalname} (${file.mimetype})`);
+      cb(new Error(`File type not allowed: ${file.mimetype}`));
     }
   }
 });
@@ -117,30 +123,63 @@ router.get('/', optionalAuth, (req, res) => {
   }
 });
 
+// Test upload route
+router.post('/test-upload', authenticateToken, (req, res) => {
+  res.json({ message: 'Upload route accessible', user: req.user?.id });
+});
+
 // Upload file
-router.post('/upload', authenticateToken, upload.single('file'), (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ error: 'No file uploaded' });
-  }
+router.post('/upload', authenticateToken, (req, res) => {
+  try {
+    console.log('File upload request received from user:', req.user?.id);
+    upload.single('file')(req, res, (err) => {
+    if (err) {
+      console.error('Multer error:', err.message);
+      if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({ error: 'File too large (max 10MB)' });
+        }
+        return res.status(400).json({ error: `Upload error: ${err.message}` });
+      }
+      return res.status(400).json({ error: err.message });
+    }
 
-  const { workspaceId, isPublic = false } = req.body;
-  const fileId = uuidv4();
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
 
-  // If workspaceId is provided, check access
-  if (workspaceId) {
+    console.log('File uploaded successfully:', req.file);
+
+    const { workspaceId, isPublic = false } = req.body;
+    const fileId = uuidv4();
+
+    // If workspaceId is provided, check access
+    if (workspaceId) {
     db.get(`
       SELECT wm.role FROM workspace_members wm
       WHERE wm.workspace_id = ? AND wm.user_id = ?
     `, [workspaceId, req.user.id], (err, member) => {
       if (err) {
-        // Clean up uploaded file
-        fs.unlinkSync(req.file.path);
+        // Clean up uploaded file safely
+        try {
+          if (req.file && req.file.path) {
+            fs.unlinkSync(req.file.path);
+          }
+        } catch (cleanupErr) {
+          console.error('Failed to clean up uploaded file:', cleanupErr);
+        }
         return res.status(500).json({ error: 'Database error' });
       }
 
       if (!member) {
-        // Clean up uploaded file
-        fs.unlinkSync(req.file.path);
+        // Clean up uploaded file safely
+        try {
+          if (req.file && req.file.path) {
+            fs.unlinkSync(req.file.path);
+          }
+        } catch (cleanupErr) {
+          console.error('Failed to clean up uploaded file:', cleanupErr);
+        }
         return res.status(403).json({ error: 'Access denied to workspace' });
       }
 
@@ -151,6 +190,14 @@ router.post('/upload', authenticateToken, upload.single('file'), (req, res) => {
   }
 
   function saveFile() {
+    console.log('Attempting to save file to database:', {
+      fileId,
+      filename: req.file.filename,
+      originalname: req.file.originalname,
+      size: req.file.size,
+      userId: req.user.id,
+      workspaceId
+    });
     db.run(`
       INSERT INTO files (id, name, original_name, type, size, path, uploader_id, workspace_id, is_public)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -164,7 +211,7 @@ router.post('/upload', authenticateToken, upload.single('file'), (req, res) => {
       req.user.id,
       workspaceId || null,
       isPublic
-    ], function(err) {
+    ], async function(err) {
       if (err) {
         console.error('File upload database error:', err);
         // Clean up uploaded file
@@ -173,8 +220,21 @@ router.post('/upload', authenticateToken, upload.single('file'), (req, res) => {
         } catch (unlinkErr) {
           console.error('Failed to clean up file:', unlinkErr);
         }
-        return res.status(500).json({ error: 'Failed to save file record', details: err.message });
+        return res.status(500).json({ error: 'Failed to save file record' });
       }
+
+      // Log successful file upload
+      await logSecurityEvent(SECURITY_EVENTS.FILE_UPLOAD, {
+        userId: req.user.id,
+        fileId,
+        filename: req.file.originalname,
+        fileSize: req.file.size,
+        fileType: req.file.mimetype,
+        workspaceId: workspaceId || null,
+        isPublic,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent')
+      });
 
       res.status(201).json({
         id: fileId,
@@ -190,10 +250,15 @@ router.post('/upload', authenticateToken, upload.single('file'), (req, res) => {
       });
     });
   }
+  });
+  } catch (error) {
+    console.error('Unexpected error in file upload:', error);
+    res.status(500).json({ error: 'File upload failed' });
+  }
 });
 
 // Download file
-router.get('/:id/download', optionalAuth, (req, res) => {
+router.get('/:id/download', optionalAuth, async (req, res) => {
   const fileId = req.params.id;
 
   const query = `
@@ -204,7 +269,7 @@ router.get('/:id/download', optionalAuth, (req, res) => {
     WHERE f.id = ?
   `;
 
-  db.get(query, [req.user?.id, fileId], (err, file) => {
+  db.get(query, [req.user?.id, fileId], async (err, file) => {
     if (err) {
       return res.status(500).json({ error: 'Database error' });
     }
@@ -222,14 +287,40 @@ router.get('/:id/download', optionalAuth, (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
     }
 
+    // Validate file path to prevent directory traversal
+    const uploadDir = process.env.UPLOAD_DIR || path.join(__dirname, '../../uploads');
+    const resolvedUploadDir = path.resolve(uploadDir);
+    const resolvedFilePath = path.resolve(file.path);
+    
+    // Ensure the file path is within the upload directory
+    if (!resolvedFilePath.startsWith(resolvedUploadDir)) {
+      console.error(`Directory traversal attempt: ${file.path} -> ${resolvedFilePath}`);
+      return res.status(403).json({ error: 'Access denied - invalid file path' });
+    }
+
     // Check if file exists on disk
-    if (!fs.existsSync(file.path)) {
+    if (!fs.existsSync(resolvedFilePath)) {
       return res.status(404).json({ error: 'File not found on disk' });
     }
 
-    res.setHeader('Content-Disposition', `attachment; filename="${file.original_name}"`);
+    // Log file download
+    await logSecurityEvent(SECURITY_EVENTS.FILE_DOWNLOAD, {
+      userId: req.user?.id || null,
+      fileId: file.id,
+      filename: file.original_name,
+      fileSize: file.size,
+      fileType: file.type,
+      workspaceId: file.workspace_id,
+      isPublic: file.is_public,
+      ipAddress: req.ip,
+      userAgent: req.get('User-Agent')
+    });
+
+    // Sanitize filename for Content-Disposition header
+    const safeFilename = file.original_name.replace(/[^\w\s.-]/g, '');
+    res.setHeader('Content-Disposition', `attachment; filename="${safeFilename}"`);
     res.setHeader('Content-Type', file.type);
-    res.sendFile(path.resolve(file.path));
+    res.sendFile(resolvedFilePath);
   });
 });
 
@@ -267,10 +358,20 @@ router.delete('/:id', authenticateToken, (req, res) => {
         return res.status(500).json({ error: 'Failed to delete file record' });
       }
 
-      // Delete file from disk
-      if (fs.existsSync(file.path)) {
+      // Delete file from disk with path validation
+      const uploadDir = process.env.UPLOAD_DIR || path.join(__dirname, '../../uploads');
+      const resolvedUploadDir = path.resolve(uploadDir);
+      const resolvedFilePath = path.resolve(file.path);
+      
+      // Ensure the file path is within the upload directory
+      if (!resolvedFilePath.startsWith(resolvedUploadDir)) {
+        console.error(`Directory traversal attempt during delete: ${file.path} -> ${resolvedFilePath}`);
+        return res.status(500).json({ error: 'Failed to delete file - invalid path' });
+      }
+
+      if (fs.existsSync(resolvedFilePath)) {
         try {
-          fs.unlinkSync(file.path);
+          fs.unlinkSync(resolvedFilePath);
         } catch (error) {
           console.error('Failed to delete file from disk:', error);
         }

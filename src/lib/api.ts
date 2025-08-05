@@ -41,10 +41,10 @@ class ApiClient {
   }
 
   // Auth endpoints
-  async login(email: string, password: string) {
+  async login(identifier: string, password: string) {
     return this.request('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ identifier, password }),
     });
   }
 
@@ -354,6 +354,49 @@ class ApiClient {
     if (params?.userId) query.set('userId', params.userId);
     
     return this.request(`/admin/audit-logs?${query}`);
+  }
+
+  // Settings endpoints
+  async changePassword(currentPassword: string, newPassword: string) {
+    return this.request('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({
+        currentPassword,
+        newPassword,
+      }),
+    });
+  }
+
+  async updateNotificationSettings(settings: {
+    emailNotifications?: boolean;
+    pushNotifications?: boolean;
+    workspaceInvites?: boolean;
+    chatMentions?: boolean;
+  }) {
+    return this.request('/auth/notification-settings', {
+      method: 'PUT',
+      body: JSON.stringify(settings),
+    });
+  }
+
+  async updatePreferences(preferences: {
+    theme?: string;
+    language?: string;
+  }) {
+    return this.request('/auth/preferences', {
+      method: 'PUT',
+      body: JSON.stringify(preferences),
+    });
+  }
+
+  async exportUserData() {
+    return this.request('/auth/export-data');
+  }
+
+  async deleteAccount() {
+    return this.request('/auth/delete-account', {
+      method: 'DELETE',
+    });
   }
 }
 

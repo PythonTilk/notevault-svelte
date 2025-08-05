@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { authStore, currentUser } from '$lib/stores/auth';
+  import { api } from '$lib/api';
   import { User, Mail, Lock, Bell, Palette, Shield, Download, Trash2, Save } from 'lucide-svelte';
 
   let displayName = '';
@@ -82,19 +83,15 @@
     message = '';
 
     try {
-      // TODO: Implement password change API
-      // const result = await api.changePassword(currentPassword, newPassword);
-      
-      // Mock success for now
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await api.changePassword(currentPassword, newPassword);
       
       currentPassword = '';
       newPassword = '';
       confirmPassword = '';
       
       showMessage('Password changed successfully', 'success');
-    } catch (error) {
-      showMessage('Failed to change password', 'error');
+    } catch (error: any) {
+      showMessage(error.message || 'Failed to change password', 'error');
     } finally {
       isSaving = false;
     }
@@ -105,20 +102,16 @@
     message = '';
 
     try {
-      // TODO: Implement notification settings API
-      // await api.updateNotificationSettings({
-      //   emailNotifications,
-      //   pushNotifications,
-      //   workspaceInvites,
-      //   chatMentions
-      // });
-      
-      // Mock success for now
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await api.updateNotificationSettings({
+        emailNotifications,
+        pushNotifications,
+        workspaceInvites,
+        chatMentions
+      });
       
       showMessage('Notification settings saved', 'success');
-    } catch (error) {
-      showMessage('Failed to save notification settings', 'error');
+    } catch (error: any) {
+      showMessage(error.message || 'Failed to save notification settings', 'error');
     } finally {
       isSaving = false;
     }
@@ -129,15 +122,11 @@
     message = '';
 
     try {
-      // TODO: Implement preferences API
-      // await api.updatePreferences({ theme, language });
-      
-      // Mock success for now
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await api.updatePreferences({ theme, language });
       
       showMessage('Preferences saved', 'success');
-    } catch (error) {
-      showMessage('Failed to save preferences', 'error');
+    } catch (error: any) {
+      showMessage(error.message || 'Failed to save preferences', 'error');
     } finally {
       isSaving = false;
     }
@@ -145,18 +134,9 @@
 
   async function exportData() {
     try {
-      // TODO: Implement data export API
-      // const data = await api.exportUserData();
+      const data = await api.exportUserData();
       
-      // Mock export for now
-      const mockData = {
-        user: $currentUser,
-        workspaces: [],
-        notes: [],
-        exportDate: new Date().toISOString()
-      };
-      
-      const blob = new Blob([JSON.stringify(mockData, null, 2)], { type: 'application/json' });
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -167,8 +147,8 @@
       URL.revokeObjectURL(url);
       
       showMessage('Data exported successfully', 'success');
-    } catch (error) {
-      showMessage('Failed to export data', 'error');
+    } catch (error: any) {
+      showMessage(error.message || 'Failed to export data', 'error');
     }
   }
 
@@ -183,12 +163,13 @@
     }
 
     try {
-      // TODO: Implement account deletion API
-      // await api.deleteAccount();
+      await api.deleteAccount();
       
-      showMessage('Account deletion is not implemented yet', 'error');
-    } catch (error) {
-      showMessage('Failed to delete account', 'error');
+      // Redirect to login after successful deletion
+      authStore.logout();
+      window.location.href = '/login';
+    } catch (error: any) {
+      showMessage(error.message || 'Failed to delete account', 'error');
     }
   }
 

@@ -8,9 +8,9 @@ export const isAuthenticated = writable<boolean>(false);
 export const isLoading = writable<boolean>(true);
 
 export const authStore = {
-  login: async (email: string, password: string) => {
+  login: async (identifier: string, password: string) => {
     try {
-      const response = await api.login(email, password);
+      const response = await api.login(identifier, password);
       
       if (response.success && response.token && response.user) {
         if (browser) {

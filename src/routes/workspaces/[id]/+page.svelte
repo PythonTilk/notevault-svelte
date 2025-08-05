@@ -3,6 +3,7 @@
   import { page } from '$app/stores';
   import { Plus, Save, Palette, Type, Code, Settings, Users, Share } from 'lucide-svelte';
   import { workspaceNotes, workspaceStore, currentWorkspace } from '$lib/stores/workspaces';
+  import DOMPurify from 'dompurify';
   import NoteCard from '$lib/components/NoteCard.svelte';
   import type { Note } from '$lib/types';
 
@@ -11,6 +12,10 @@
   let showCreateModal = false;
   let showNoteModal = false;
   let selectedNote: Note | null = null;
+  
+  function sanitizeHtml(html: string): string {
+    return DOMPurify.sanitize(html.replace(/\n/g, '<br>'));
+  }
   let draggedNote: Note | null = null;
   
   // New note form
@@ -137,6 +142,54 @@
     updateCanvasTransform();
   }
 
+  function handleCanvasKeyDown(event: KeyboardEvent) {
+    const step = 50;
+    const zoomStep = 0.1;
+    
+    switch (event.key) {
+      case 'ArrowUp':
+        event.preventDefault();
+        canvasOffset.y += step;
+        updateCanvasTransform();
+        break;
+      case 'ArrowDown':
+        event.preventDefault();
+        canvasOffset.y -= step;
+        updateCanvasTransform();
+        break;
+      case 'ArrowLeft':
+        event.preventDefault();
+        canvasOffset.x += step;
+        updateCanvasTransform();
+        break;
+      case 'ArrowRight':
+        event.preventDefault();
+        canvasOffset.x -= step;
+        updateCanvasTransform();
+        break;
+      case '+':
+      case '=':
+        event.preventDefault();
+        canvasScale = Math.min(3, canvasScale + zoomStep);
+        updateCanvasTransform();
+        break;
+      case '-':
+        event.preventDefault();
+        canvasScale = Math.max(0.1, canvasScale - zoomStep);
+        updateCanvasTransform();
+        break;
+      case '0':
+        event.preventDefault();
+        resetCanvas();
+        break;
+      case 'Enter':
+      case ' ':
+        event.preventDefault();
+        showCreateModal = true;
+        break;
+    }
+  }
+
   const noteColors = [
     '#fbbf24', '#ef4444', '#3b82f6', '#10b981', 
     '#8b5cf6', '#f59e0b', '#06b6d4', '#84cc16'
@@ -173,15 +226,15 @@
       >
         Reset View
       </button>
-      <button class="btn-ghost">
+      <button class="btn-ghost" aria-label="Manage workspace members">
         <Users class="w-4 h-4 mr-2" />
         Members
       </button>
-      <button class="btn-ghost">
+      <button class="btn-ghost" aria-label="Share workspace">
         <Share class="w-4 h-4 mr-2" />
         Share
       </button>
-      <button class="btn-ghost">
+      <button class="btn-ghost" aria-label="Workspace settings">
         <Settings class="w-4 h-4" />
       </button>
       <button
@@ -210,6 +263,8 @@
     on:dragover={handleCanvasDragOver}
     role="application"
     tabindex="0"
+    aria-label="Interactive workspace canvas for managing notes"
+    on:keydown={handleCanvasKeyDown}
   >
     <!-- Grid Background -->
     <div class="absolute inset-0 opacity-10">
@@ -243,12 +298,16 @@
         <button
           class="w-8 h-8 flex items-center justify-center bg-dark-800 hover:bg-dark-700 rounded text-white text-lg"
           on:click={() => { canvasScale = Math.min(3, canvasScale * 1.2); updateCanvasTransform(); }}
+          aria-label="Zoom in"
+          title="Zoom in"
         >
           +
         </button>
         <button
           class="w-8 h-8 flex items-center justify-center bg-dark-800 hover:bg-dark-700 rounded text-white text-lg"
           on:click={() => { canvasScale = Math.max(0.1, canvasScale * 0.8); updateCanvasTransform(); }}
+          aria-label="Zoom out"
+          title="Zoom out"
         >
           −
         </button>
@@ -318,6 +377,8 @@
                   class="w-8 h-8 rounded-full border-2 {newNoteColor === color ? 'border-white' : 'border-dark-700'}"
                   style="background-color: {color}"
                   on:click={() => newNoteColor = color}
+                  aria-label="Select color {color}"
+                  title="Select color {color}"
                 ></button>
               {/each}
             </div>
@@ -351,6 +412,8 @@
           <button
             class="text-dark-400 hover:text-white"
             on:click={() => showNoteModal = false}
+            aria-label="Close note details"
+            title="Close"
           >
             ×
           </button>
@@ -360,7 +423,7 @@
       <div class="p-6 overflow-y-auto">
         {#if selectedNote.type === 'rich'}
           <div class="prose prose-invert max-w-none">
-            {@html selectedNote.content.replace(/\n/g, '<br>')}
+            {@html sanitizeHtml(selectedNote.content)}
           </div>
         {:else if selectedNote.type === 'code'}
           <pre class="bg-dark-800 p-4 rounded-lg text-green-400 font-mono text-sm overflow-x-auto">{selectedNote.content}</pre>

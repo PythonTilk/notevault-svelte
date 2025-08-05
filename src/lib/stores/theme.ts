@@ -1,8 +1,30 @@
 import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
 
+// TypeScript interfaces
+export interface ThemeColors {
+  primary: string;
+  secondary: string;
+  accent: string;
+  background: string;
+  surface: string;
+  text: string;
+  textSecondary: string;
+  border: string;
+  error: string;
+  success: string;
+  warning: string;
+}
+
+export interface Theme {
+  name: string;
+  colors: ThemeColors;
+}
+
+export type ThemeMap = Record<string, Theme>;
+
 // Available themes
-export const themes = {
+export const themes: ThemeMap = {
   'dark': {
     name: 'Dark',
     colors: {
@@ -102,10 +124,10 @@ export const themes = {
 };
 
 // Get initial theme from localStorage or default to dark
-function getInitialTheme() {
+function getInitialTheme(): string {
   if (browser) {
     const stored = localStorage.getItem('notevault-theme');
-    if (stored && themes[stored]) {
+    if (stored && stored in themes) {
       return stored;
     }
     
@@ -121,8 +143,8 @@ function getInitialTheme() {
 export const currentTheme = writable(getInitialTheme());
 
 // Apply theme to DOM
-export function applyTheme(themeName) {
-  if (!browser || !themes[themeName]) return;
+export function applyTheme(themeName: string): void {
+  if (!browser || !(themeName in themes)) return;
   
   const theme = themes[themeName];
   const root = document.documentElement;

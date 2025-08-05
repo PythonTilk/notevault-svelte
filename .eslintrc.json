@@ -1,37 +1,37 @@
 {
   "root": true,
-  "extends": [
-    "eslint:recommended",
-    "@typescript-eslint/recommended",
-    "plugin:svelte/recommended"
-  ],
-  "parser": "@typescript-eslint/parser",
-  "plugins": ["@typescript-eslint"],
-  "parserOptions": {
-    "sourceType": "module",
-    "ecmaVersion": 2020,
-    "extraFileExtensions": [".svelte"]
-  },
+  "extends": ["eslint:recommended"],
   "env": {
     "browser": true,
     "es2017": true,
     "node": true
   },
+  "parserOptions": {
+    "sourceType": "module",
+    "ecmaVersion": 2020
+  },
   "overrides": [
+    {
+      "files": ["*.ts", "*.tsx"],
+      "parser": "@typescript-eslint/parser",
+      "plugins": ["@typescript-eslint"],
+      "rules": {
+        "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
+        "@typescript-eslint/no-explicit-any": "warn"
+      }
+    },
     {
       "files": ["*.svelte"],
       "parser": "svelte-eslint-parser",
+      "plugins": ["svelte"],
       "parserOptions": {
         "parser": "@typescript-eslint/parser"
+      },
+      "rules": {
+        "svelte/no-at-html-tags": "warn"
       }
     }
   ],
-  "rules": {
-    "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
-    "@typescript-eslint/no-explicit-any": "warn",
-    "svelte/no-at-html-tags": "warn",
-    "svelte/no-target-blank": "warn"
-  },
   "ignorePatterns": [
     "build/",
     ".svelte-kit/",

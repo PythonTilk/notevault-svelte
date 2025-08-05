@@ -18,7 +18,8 @@ export const nodes = [
 	() => import('./nodes/14'),
 	() => import('./nodes/15'),
 	() => import('./nodes/16'),
-	() => import('./nodes/17')
+	() => import('./nodes/17'),
+	() => import('./nodes/18')
 ];
 
 export const server_loads = [];
@@ -36,10 +37,11 @@ export const dictionary = {
 		"/login": [11],
 		"/notifications": [12],
 		"/register": [13],
-		"/settings": [14],
-		"/settings/integrations": [15],
-		"/settings/integrations/webhooks/new": [16],
-		"/workspaces/[id]": [17]
+		"/search": [14],
+		"/settings": [15],
+		"/settings/integrations": [16],
+		"/settings/integrations/webhooks/new": [17],
+		"/workspaces/[id]": [18]
 	};
 
 export const hooks = {

@@ -41,7 +41,9 @@ const initializeRedis = async () => {
 };
 
 // Initialize Redis connection
-await initializeRedis();
+(async () => {
+  await initializeRedis();
+})();
 
 // Session configuration
 const sessionConfig = {

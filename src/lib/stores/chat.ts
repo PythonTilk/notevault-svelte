@@ -3,6 +3,7 @@ import { browser } from '$app/environment';
 import { io, type Socket } from 'socket.io-client';
 import type { ChatMessage, User } from '$lib/types';
 import { api } from '$lib/api';
+import { currentUser } from './auth';
 
 export const chatMessages = writable<ChatMessage[]>([]);
 export const connectedUsers = writable<User[]>([]);
@@ -12,11 +13,25 @@ export const typingUsers = writable<string[]>([]);
 
 let socket: Socket | null = null;
 
+// Helper function to get current user ID
+const getCurrentUserId = (): string | null => {
+  let userId: string | null = null;
+  currentUser.subscribe(user => {
+    userId = user?.id || null;
+  })();
+  return userId;
+};
+
 export const chatStore = {
   connect: () => {
     if (!browser || socket?.connected) return;
 
-    socket = io('http://localhost:56770', {
+    // Use the same base URL as the API but without the /api path for WebSocket
+    const wsUrl = import.meta.env.VITE_API_URL 
+      ? import.meta.env.VITE_API_URL.replace('/api', '') 
+      : 'http://localhost:3001';
+    
+    socket = io(wsUrl, {
       transports: ['websocket', 'polling']
     });
 
@@ -168,20 +183,23 @@ export const chatStore = {
     try {
       await api.addReaction(messageId, emoji);
       
+      const userId = getCurrentUserId();
+      if (!userId) return;
+      
       // Update local state optimistically
       chatMessages.update(messages =>
         messages.map(message => {
           if (message.id === messageId) {
             const existingReaction = message.reactions.find(r => r.emoji === emoji);
             if (existingReaction) {
-              if (!existingReaction.users.includes('current-user')) {
-                existingReaction.users.push('current-user');
+              if (!existingReaction.users.includes(userId)) {
+                existingReaction.users.push(userId);
                 existingReaction.count++;
               }
             } else {
               message.reactions.push({
                 emoji,
-                users: ['current-user'],
+                users: [userId],
                 count: 1
               });
             }
@@ -199,6 +217,9 @@ export const chatStore = {
     try {
       await api.removeReaction(messageId, emoji);
       
+      const userId = getCurrentUserId();
+      if (!userId) return;
+      
       // Update local state optimistically
       chatMessages.update(messages =>
         messages.map(message => {
@@ -206,7 +227,7 @@ export const chatStore = {
             message.reactions = message.reactions
               .map(reaction => {
                 if (reaction.emoji === emoji) {
-                  reaction.users = reaction.users.filter(userId => userId !== 'current-user');
+                  reaction.users = reaction.users.filter(u => u !== userId);
                   reaction.count = reaction.users.length;
                 }
                 return reaction;

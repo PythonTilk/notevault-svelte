@@ -13,7 +13,10 @@
     LogOut
   } from 'lucide-svelte';
   import { currentUser, authStore } from '$lib/stores/auth';
+  import { showCreateWorkspaceModal } from '$lib/stores/modals';
   import { goto } from '$app/navigation';
+  
+  let searchQuery = '';
 
   const navigation = [
     { name: 'Dashboard', href: '/', icon: Home },
@@ -39,6 +42,18 @@
     authStore.logout();
     goto('/login');
   }
+  
+  function handleSearch() {
+    if (searchQuery.trim()) {
+      goto(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+    }
+  }
+  
+  function handleSearchKeyDown(event: KeyboardEvent) {
+    if (event.key === 'Enter') {
+      handleSearch();
+    }
+  }
 </script>
 
 <div class="flex h-screen bg-dark-950">
@@ -61,6 +76,8 @@
         <input
           type="text"
           placeholder="Search..."
+          bind:value={searchQuery}
+          on:keydown={handleSearchKeyDown}
           class="w-full pl-10 pr-4 py-2 bg-dark-800 border border-dark-700 rounded-lg text-sm text-white placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
         />
       </div>
@@ -83,7 +100,10 @@
 
       <!-- Create New -->
       <div class="pt-4 border-t border-dark-800">
-        <button class="w-full flex items-center px-3 py-2 text-sm font-medium text-dark-300 hover:bg-dark-800 hover:text-white rounded-lg transition-colors">
+        <button 
+          on:click={() => showCreateWorkspaceModal.set(true)}
+          class="w-full flex items-center px-3 py-2 text-sm font-medium text-dark-300 hover:bg-dark-800 hover:text-white rounded-lg transition-colors"
+        >
           <Plus class="w-5 h-5 mr-3" />
           Create Workspace
         </button>

@@ -37,12 +37,14 @@ router.get('/messages', authenticateToken, (req, res) => {
       return res.json([]);
     }
 
+    // Create placeholders for IN clause safely
+    const placeholders = messageIds.map(() => '?').join(',');
     const reactionsQuery = `
       SELECT mr.message_id, mr.emoji, COUNT(*) as count,
              GROUP_CONCAT(u.username) as users
       FROM message_reactions mr
       JOIN users u ON mr.user_id = u.id
-      WHERE mr.message_id IN (${messageIds.map(() => '?').join(',')})
+      WHERE mr.message_id IN (${placeholders})
       GROUP BY mr.message_id, mr.emoji
     `;
 
@@ -106,7 +108,7 @@ router.post('/messages', authenticateToken, [
   `, [messageId, content, req.user.id, channelId, replyToId], function(err) {
     if (err) {
       console.error('Chat message database error:', err);
-      return res.status(500).json({ error: 'Failed to send message', details: err.message });
+      return res.status(500).json({ error: 'Failed to send message' });
     }
 
     // Get the created message with author info
