@@ -200,7 +200,6 @@ declare module '$env/static/private' {
 	export const COPILOT_AGENT_TIMEOUT_MIN: string;
 	export const INIT_CWD: string;
 	export const EDITOR: string;
-	export const NODE_ENV: string;
 }
 
 /**
@@ -406,7 +405,6 @@ declare module '$env/dynamic/private' {
 		COPILOT_AGENT_TIMEOUT_MIN: string;
 		INIT_CWD: string;
 		EDITOR: string;
-		NODE_ENV: string;
 		[key: `PUBLIC_${string}`]: undefined;
 		[key: `${string}`]: string | undefined;
 	}

@@ -64,7 +64,7 @@ export default defineConfig({
     {
       command: 'npm run start:backend',
       cwd: '.',
-      port: 56770,
+      port: 3001,
       reuseExistingServer: !process.env.CI,
     },
     {
