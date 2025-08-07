@@ -41,12 +41,34 @@ jobs:
       run: cd server && npm ci
       
     - name: Run ESLint (Frontend)
-      run: npm run lint || echo "Linting completed with warnings/errors"
-      continue-on-error: true
+      run: |
+        # Run lint and check for critical errors only
+        npm run lint 2>&1 | tee lint-output.log
+        # Count critical errors (not all errors, as many are legacy code style issues)
+        CRITICAL_ERRORS=$(grep -c "no-case-declarations\|no-duplicate-keys\|no-undef\|no-unreachable" lint-output.log || echo 0)
+        if [ "$CRITICAL_ERRORS" -gt 0 ]; then
+          echo "❌ ESLint found $CRITICAL_ERRORS critical errors that must be fixed"
+          exit 1
+        else
+          echo "✅ ESLint passed (no critical errors found)"
+        fi
       
     - name: Run TypeScript check (Frontend)
-      run: npm run check || echo "TypeScript check completed with warnings"
-      continue-on-error: true
+      run: |
+        # Run TypeScript check but allow some warnings
+        npm run check 2>&1 | tee ts-output.log || true
+        
+        # Extract error count from svelte-check output
+        ERROR_COUNT=$(grep "svelte-check found" ts-output.log | grep -o "[0-9]\+ errors" | grep -o "[0-9]\+" || echo "0")
+        
+        # If we have more than 430 errors, fail (current baseline is 424)
+        if [ "$ERROR_COUNT" -gt 430 ]; then
+          echo "❌ TypeScript check failed with $ERROR_COUNT errors (threshold: 430)"
+          echo "Recent changes have introduced new TypeScript errors"
+          exit 1
+        else
+          echo "✅ TypeScript check passed with $ERROR_COUNT errors (within acceptable range)"
+        fi
       
     - name: Build Frontend (Test)
       run: npm run build
