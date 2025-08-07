@@ -381,10 +381,11 @@ router.get('/export',
       let data;
       
       switch (type) {
-        case 'users':
+        case 'users': {
           const timeFilter = analyticsService.getTimeFilter(timeRange);
           data = await analyticsService.getUserStats(timeFilter);
           break;
+        }
         case 'performance':
           data = monitoringService.getPerformanceSummary(timeRange);
           break;

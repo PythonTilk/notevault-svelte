@@ -1,8 +1,23 @@
 import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
 
+// Types
+interface ShortcutAction {
+  action: string;
+  description: string;
+  category: string;
+}
+
+interface ShortcutOptions {
+  preventDefault?: boolean;
+  stopPropagation?: boolean;
+  target?: EventTarget | Document;
+  enabled?: boolean;
+  allowInInputs?: boolean;
+}
+
 // Default keyboard shortcuts
-export const defaultShortcuts = {
+export const defaultShortcuts: Record<string, ShortcutAction> = {
   // Navigation
   'mod+k': { 
     action: 'command-palette', 
@@ -88,7 +103,7 @@ export const defaultShortcuts = {
     description: 'Search in notes',
     category: 'Search'
   },
-  'mod+shift+f': { 
+  'mod+ctrl+f': { 
     action: 'search-replace', 
     description: 'Search and replace',
     category: 'Search'
@@ -262,7 +277,7 @@ export const shortcuts = writable(getInitialShortcuts());
 const activeListeners = new Map();
 
 // Normalize key combination
-function normalizeKey(key) {
+function normalizeKey(key: string): string {
   return key.toLowerCase()
     .replace(/\s+/g, '')
     .replace(/cmd|command/g, 'mod')
@@ -273,7 +288,7 @@ function normalizeKey(key) {
 }
 
 // Check if key combination matches
-function matchesShortcut(event, shortcut) {
+function matchesShortcut(event: KeyboardEvent, shortcut: string): boolean {
   const keys = shortcut.split('+');
   const hasModifier = keys.includes('mod');
   const hasShift = keys.includes('shift');
@@ -297,7 +312,7 @@ function matchesShortcut(event, shortcut) {
 }
 
 // Register shortcut listener
-export function registerShortcut(shortcutKey, callback, options = {}) {
+export function registerShortcut(shortcutKey: string, callback: () => void, options: ShortcutOptions = {}): () => void {
   if (!browser) return () => {};
 
   const { 
@@ -309,11 +324,12 @@ export function registerShortcut(shortcutKey, callback, options = {}) {
 
   const normalizedKey = normalizeKey(shortcutKey);
   
-  const handler = (event) => {
+  const handler = (event: KeyboardEvent) => {
     if (!enabled) return;
     
     // Skip if typing in input fields (unless explicitly allowed)
     if (!options.allowInInputs && 
+        event.target instanceof HTMLElement && 
         ['input', 'textarea', 'select'].includes(event.target.tagName.toLowerCase())) {
       return;
     }
@@ -322,11 +338,11 @@ export function registerShortcut(shortcutKey, callback, options = {}) {
       if (preventDefault) event.preventDefault();
       if (stopPropagation) event.stopPropagation();
       
-      callback(event);
+      callback();
     }
   };
 
-  target.addEventListener('keydown', handler);
+  target.addEventListener('keydown', handler as EventListener);
   
   // Store listener for cleanup
   const listenerId = `${normalizedKey}-${Date.now()}`;
@@ -334,14 +350,14 @@ export function registerShortcut(shortcutKey, callback, options = {}) {
 
   // Return cleanup function
   return () => {
-    target.removeEventListener('keydown', handler);
+    target.removeEventListener('keydown', handler as EventListener);
     activeListeners.delete(listenerId);
   };
 }
 
 // Register multiple shortcuts at once
-export function registerShortcuts(shortcutMap, options = {}) {
-  const cleanupFunctions = [];
+export function registerShortcuts(shortcutMap: Record<string, () => void>, options: ShortcutOptions = {}): () => void {
+  const cleanupFunctions: (() => void)[] = [];
   
   Object.entries(shortcutMap).forEach(([key, callback]) => {
     const cleanup = registerShortcut(key, callback, options);
@@ -355,7 +371,7 @@ export function registerShortcuts(shortcutMap, options = {}) {
 }
 
 // Update shortcut configuration
-export function updateShortcut(oldKey, newKey, action) {
+export function updateShortcut(oldKey: string, newKey: string, action: string): void {
   if (!browser) return;
 
   shortcuts.update(current => {
@@ -370,7 +386,7 @@ export function updateShortcut(oldKey, newKey, action) {
     if (newKey && action) {
       updated[newKey] = {
         action,
-        description: action.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+        description: action.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
         category: 'Custom'
       };
     }
