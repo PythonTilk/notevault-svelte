@@ -2,6 +2,8 @@
   import { goto } from '$app/navigation';
   import { authStore } from '$lib/stores/auth';
   import { Eye, EyeOff, Mail, Lock } from 'lucide-svelte';
+  import { toastStore } from '$lib/stores/toast';
+  import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
 
   let identifier = '';
   let password = '';
@@ -11,22 +13,23 @@
 
   async function handleLogin() {
     if (!identifier || !password) {
-      error = 'Please fill in all fields';
+      toastStore.warning('Missing Information', 'Please fill in all fields');
       return;
     }
 
     isLoading = true;
-    error = '';
 
     try {
       const result = await authStore.login(identifier, password);
       if (result.success) {
+        toastStore.success('Welcome back!', 'Successfully logged in');
         goto('/');
       } else {
-        error = result.error || 'Invalid email or password';
+        toastStore.error('Login Failed', result.error || 'Invalid email or password');
       }
     } catch (err) {
-      error = 'Invalid email or password';
+      toastStore.error('Login Error', 'Unable to connect to server. Please try again.');
+      console.error('Login error:', err);
     } finally {
       isLoading = false;
     }

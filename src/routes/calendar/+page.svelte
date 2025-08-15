@@ -10,16 +10,21 @@
     Users,
     Video,
     Settings,
-    ExternalLink
+    ExternalLink,
+    RefreshCw
   } from 'lucide-svelte';
   import { api } from '$lib/api';
+  import CalendarConnectModal from '$lib/components/CalendarConnectModal.svelte';
 
   let currentDate = new Date();
-  let viewMode = 'month'; // 'month', 'week', 'day'
+  let viewMode: 'month' | 'week' | 'day' = 'month';
   let events = [];
   let isLoading = false;
+  let isSyncing = false;
   let showCreateModal = false;
+  let showConnectModal = false;
   let connectedCalendars = [];
+  let selectedCalendars = new Set(); // For filtering
 
   // New event form
   let newEvent = {
@@ -48,18 +53,14 @@
 
   async function loadConnectedCalendars() {
     try {
-      const response = await api.get('/integrations/calendars');
-      if (response.ok) {
-        connectedCalendars = await response.json();
-      } else {
-        // Mock data
-        connectedCalendars = [
-          { id: 'primary', name: 'Primary Calendar', provider: 'google', color: '#3B82F6' },
-          { id: 'work', name: 'Work Calendar', provider: 'outlook', color: '#10B981' }
-        ];
-      }
+      connectedCalendars = await api.getConnectedCalendars();
     } catch (error) {
       console.error('Failed to load calendars:', error);
+      // Fallback to mock data
+      connectedCalendars = [
+        { id: 'primary', name: 'Primary Calendar', provider: 'google', color: '#3B82F6' },
+        { id: 'work', name: 'Work Calendar', provider: 'outlook', color: '#10B981' }
+      ];
     }
   }
 
@@ -69,16 +70,24 @@
       const startDate = getMonthStart(currentDate);
       const endDate = getMonthEnd(currentDate);
       
-      const response = await api.get(`/calendar/events?start=${startDate.toISOString()}&end=${endDate.toISOString()}`);
-      if (response.ok) {
-        events = await response.json();
-      } else {
-        // Mock events
+      events = await api.getCalendarEvents({
+        start: startDate.toISOString(),
+        end: endDate.toISOString()
+      });
+      
+      // If no events from API and no calendars connected, show mock events for demo
+      if (events.length === 0 && connectedCalendars.length === 0) {
         events = generateMockEvents();
       }
     } catch (error) {
       console.error('Failed to load events:', error);
-      events = generateMockEvents();
+      // Only show mock events if no calendars are connected
+      if (connectedCalendars.length === 0) {
+        events = generateMockEvents();
+      } else {
+        // If calendars are connected but API fails, show empty state
+        events = [];
+      }
     } finally {
       isLoading = false;
     }
@@ -112,6 +121,45 @@
     }
 
     return mockEvents.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+  }
+
+  // Filter events based on selected calendars
+  $: filteredEvents = selectedCalendars.size === 0 
+    ? events 
+    : events.filter(event => selectedCalendars.has(event.calendar));
+
+  function toggleCalendarFilter(calendarId: string) {
+    if (selectedCalendars.has(calendarId)) {
+      selectedCalendars.delete(calendarId);
+    } else {
+      selectedCalendars.add(calendarId);
+    }
+    selectedCalendars = new Set(selectedCalendars); // Trigger reactivity
+  }
+
+  function clearCalendarFilter() {
+    selectedCalendars.clear();
+    selectedCalendars = new Set(selectedCalendars); // Trigger reactivity
+  }
+
+  function setViewMode(mode: 'month' | 'week' | 'day') {
+    viewMode = mode;
+    loadEvents(); // Reload events for the new view
+  }
+
+  function navigateDate(direction: number) {
+    switch (viewMode) {
+      case 'month':
+        currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + direction, 1);
+        break;
+      case 'week':
+        currentDate = new Date(currentDate.getTime() + (direction * 7 * 24 * 60 * 60 * 1000));
+        break;
+      case 'day':
+        currentDate = new Date(currentDate.getTime() + (direction * 24 * 60 * 60 * 1000));
+        break;
+    }
+    loadEvents();
   }
 
   function navigateMonth(direction: number) {
@@ -164,7 +212,7 @@
   }
 
   function getEventsForDay(date: Date) {
-    return events.filter(event => {
+    return filteredEvents.filter(event => {
       const eventDate = new Date(event.startTime);
       return eventDate.toDateString() === date.toDateString();
     });
@@ -181,12 +229,21 @@
 
   async function createEvent() {
     try {
-      const response = await api.post('/calendar/events', newEvent);
-      if (response.ok) {
-        showCreateModal = false;
-        resetNewEvent();
-        await loadEvents();
-      }
+      await api.createCalendarEvent({
+        title: newEvent.title,
+        description: newEvent.description,
+        startTime: newEvent.startTime,
+        endTime: newEvent.endTime,
+        location: newEvent.location,
+        attendees: newEvent.attendees,
+        calendarId: newEvent.calendar,
+        workspaceId: newEvent.workspaceId,
+        meetingLink: newEvent.meetingLink
+      });
+      
+      showCreateModal = false;
+      resetNewEvent();
+      await loadEvents();
     } catch (error) {
       console.error('Failed to create event:', error);
     }
@@ -209,6 +266,48 @@
   function getCalendarColor(calendarId: string) {
     const calendar = connectedCalendars.find(c => c.id === calendarId);
     return calendar?.color || '#3B82F6';
+  }
+
+  function handleCalendarConnected(event) {
+    // Refresh connected calendars after successful connection
+    loadConnectedCalendars();
+    showConnectModal = false;
+  }
+
+  function handleDisconnectCalendar(calendarId: string) {
+    // Implementation for disconnecting calendar
+    api.disconnectCalendar(calendarId).then(() => {
+      loadConnectedCalendars();
+      loadEvents(); // Refresh events after disconnecting
+    }).catch(error => {
+      console.error('Failed to disconnect calendar:', error);
+    });
+  }
+
+  async function syncCalendar(calendarId: string) {
+    try {
+      await api.syncCalendar(calendarId);
+      await loadEvents(); // Refresh events after sync
+    } catch (error) {
+      console.error('Failed to sync calendar:', error);
+    }
+  }
+
+  async function syncAllCalendars() {
+    if (connectedCalendars.length === 0) return;
+    
+    isSyncing = true;
+    try {
+      // Sync all connected calendars
+      await Promise.all(
+        connectedCalendars.map(calendar => api.syncCalendar(calendar.id))
+      );
+      await loadEvents(); // Refresh events after sync
+    } catch (error) {
+      console.error('Failed to sync calendars:', error);
+    } finally {
+      isSyncing = false;
+    }
   }
 </script>
 
@@ -332,18 +431,24 @@
       
       <div class="flex items-center space-x-2">
         <button
-          on:click={() => navigateMonth(-1)}
+          on:click={() => navigateDate(-1)}
           class="p-2 rounded-lg hover:bg-dark-700 text-dark-400 hover:text-white"
         >
           <ChevronLeft class="h-4 w-4" />
         </button>
         
         <h2 class="text-lg font-medium text-white min-w-[200px] text-center">
-          {months[currentDate.getMonth()]} {currentDate.getFullYear()}
+          {#if viewMode === 'month'}
+            {months[currentDate.getMonth()]} {currentDate.getFullYear()}
+          {:else if viewMode === 'week'}
+            Week of {currentDate.toLocaleDateString()}
+          {:else}
+            {currentDate.toLocaleDateString()}
+          {/if}
         </h2>
         
         <button
-          on:click={() => navigateMonth(1)}
+          on:click={() => navigateDate(1)}
           class="p-2 rounded-lg hover:bg-dark-700 text-dark-400 hover:text-white"
         >
           <ChevronRight class="h-4 w-4" />
@@ -352,12 +457,40 @@
     </div>
 
     <div class="flex items-center space-x-3">
+      <!-- View Mode Selector -->
+      <div class="flex bg-dark-800 rounded-lg p-1">
+        {#each ['month', 'week', 'day'] as mode}
+          <button
+            class="px-3 py-1 text-sm rounded-md transition-colors"
+            class:bg-primary-600={viewMode === mode}
+            class:text-white={viewMode === mode}
+            class:text-dark-400={viewMode !== mode}
+            class:hover:text-white={viewMode !== mode}
+            on:click={() => setViewMode(mode)}
+          >
+            {mode.charAt(0).toUpperCase() + mode.slice(1)}
+          </button>
+        {/each}
+      </div>
+      
       <button
         on:click={goToToday}
         class="btn-secondary"
       >
         Today
       </button>
+      
+      {#if connectedCalendars.length > 0}
+        <button
+          on:click={syncAllCalendars}
+          class="btn-secondary"
+          disabled={isSyncing}
+          title="Sync all calendars"
+        >
+          <RefreshCw class="h-4 w-4 mr-2 {isSyncing ? 'animate-spin' : ''}" />
+          {isSyncing ? 'Syncing...' : 'Sync'}
+        </button>
+      {/if}
       
       <button
         on:click={() => showCreateModal = true}
@@ -441,7 +574,7 @@
         <div class="lg:col-span-2">
           <h3 class="text-lg font-semibold text-white mb-4">Upcoming Events</h3>
           <div class="space-y-3">
-            {#each events.filter(e => new Date(e.startTime) > new Date()).slice(0, 5) as event}
+            {#each filteredEvents.filter(e => new Date(e.startTime) > new Date()).slice(0, 5) as event}
               <div class="card p-4">
                 <div class="flex items-start justify-between">
                   <div class="flex-1">
@@ -506,25 +639,54 @@
         <div>
           <div class="flex items-center justify-between mb-4">
             <h3 class="text-lg font-semibold text-white">Connected Calendars</h3>
-            <a href="/settings/integrations" class="text-primary-400 hover:text-primary-300 text-sm">
-              Manage
-            </a>
+            <button
+              on:click={() => showConnectModal = true}
+              class="text-primary-400 hover:text-primary-300 text-sm"
+            >
+              + Add Calendar
+            </button>
           </div>
+          
+          {#if connectedCalendars.length > 0 && selectedCalendars.size > 0}
+            <div class="mb-3">
+              <button
+                on:click={clearCalendarFilter}
+                class="text-xs text-dark-400 hover:text-white"
+              >
+                Show all calendars ({selectedCalendars.size} filtered)
+              </button>
+            </div>
+          {/if}
           
           <div class="space-y-2">
             {#each connectedCalendars as calendar}
-              <div class="flex items-center justify-between p-3 bg-dark-800 rounded-lg">
+              <div 
+                class="flex items-center justify-between p-3 bg-dark-800 rounded-lg cursor-pointer transition-opacity"
+                class:opacity-50={selectedCalendars.size > 0 && !selectedCalendars.has(calendar.id)}
+                on:click={() => toggleCalendarFilter(calendar.id)}
+              >
                 <div class="flex items-center space-x-3">
-                  <div
-                    class="w-4 h-4 rounded-full"
-                    style="background-color: {calendar.color};"
-                  ></div>
-                  <div>
+                  <div class="relative">
+                    <div
+                      class="w-4 h-4 rounded-full"
+                      style="background-color: {calendar.color};"
+                    ></div>
+                    {#if selectedCalendars.size > 0 && selectedCalendars.has(calendar.id)}
+                      <div class="absolute -top-1 -right-1 w-2 h-2 bg-green-400 rounded-full"></div>
+                    {/if}
+                  </div>
+                  <div class="flex-1">
                     <div class="text-white font-medium">{calendar.name}</div>
                     <div class="text-xs text-dark-400 capitalize">{calendar.provider}</div>
                   </div>
                 </div>
-                <ExternalLink class="h-4 w-4 text-dark-400" />
+                <button
+                  on:click|stopPropagation={() => handleDisconnectCalendar(calendar.id)}
+                  class="text-red-400 hover:text-red-300 text-xs"
+                  title="Disconnect calendar"
+                >
+                  Disconnect
+                </button>
               </div>
             {/each}
             
@@ -532,9 +694,12 @@
               <div class="text-center py-6">
                 <CalendarIcon class="h-12 w-12 mx-auto mb-3 text-dark-500" />
                 <p class="text-dark-400 mb-3">No calendars connected</p>
-                <a href="/settings/integrations" class="btn-primary btn-sm">
+                <button
+                  on:click={() => showConnectModal = true}
+                  class="btn-primary btn-sm"
+                >
                   Connect Calendar
-                </a>
+                </button>
               </div>
             {/if}
           </div>
@@ -543,3 +708,10 @@
     {/if}
   </div>
 </main>
+
+<!-- Calendar Connect Modal -->
+<CalendarConnectModal 
+  bind:isOpen={showConnectModal}
+  on:connected={handleCalendarConnected}
+  on:close={() => showConnectModal = false}
+/>

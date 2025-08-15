@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import { Crown, Shield, User, MoreHorizontal } from 'lucide-svelte';
+  import { Crown, Shield, User, MoreHorizontal, Check, CheckCheck, Clock, AlertCircle, RotateCcw } from 'lucide-svelte';
   import type { ChatMessage } from '$lib/types';
 
   export let message: ChatMessage;
@@ -9,6 +9,7 @@
   const dispatch = createEventDispatcher<{
     react: { messageId: string; emoji: string };
     reply: { message: ChatMessage };
+    retry: { messageId: string };
   }>();
 
   function getRoleIcon(role: string) {
@@ -48,6 +49,40 @@
     dispatch('reply', { message });
   }
 
+  function handleRetry() {
+    dispatch('retry', { messageId: message.id });
+  }
+
+  function getDeliveryStatusIcon(status?: string) {
+    switch (status) {
+      case 'sending':
+        return Clock;
+      case 'sent':
+        return Check;
+      case 'delivered':
+        return CheckCheck;
+      case 'failed':
+        return AlertCircle;
+      default:
+        return null;
+    }
+  }
+
+  function getDeliveryStatusColor(status?: string) {
+    switch (status) {
+      case 'sending':
+        return 'text-yellow-400';
+      case 'sent':
+        return 'text-blue-400';
+      case 'delivered':
+        return 'text-green-400';
+      case 'failed':
+        return 'text-red-400';
+      default:
+        return 'text-dark-400';
+    }
+  }
+
   const commonEmojis = ['👍', '❤️', '😂', '😮', '😢', '😡'];
 </script>
 
@@ -75,6 +110,27 @@
       </span>
       {#if message.editedAt}
         <span class="text-xs text-dark-500">(edited)</span>
+      {/if}
+      <!-- Delivery Status (only for current user's messages) -->
+      {#if message.authorId === currentUserId && message.deliveryStatus}
+        {@const StatusIcon = getDeliveryStatusIcon(message.deliveryStatus)}
+        {#if StatusIcon}
+          <svelte:component 
+            this={StatusIcon} 
+            class="w-3 h-3 {getDeliveryStatusColor(message.deliveryStatus)}" 
+            title="Message {message.deliveryStatus}"
+          />
+        {/if}
+        <!-- Retry button for failed messages -->
+        {#if message.deliveryStatus === 'failed'}
+          <button
+            class="w-3 h-3 text-red-400 hover:text-red-300 transition-colors"
+            on:click={handleRetry}
+            title="Retry sending message"
+          >
+            <RotateCcw class="w-3 h-3" />
+          </button>
+        {/if}
       {/if}
     </div>
 

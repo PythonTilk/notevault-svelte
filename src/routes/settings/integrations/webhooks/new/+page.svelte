@@ -76,19 +76,23 @@
 
     isTesting = true;
     try {
-      const response = await api.post('/webhooks/test', {
+      // Create a temporary webhook for testing
+      const testWebhookData = {
         url,
-        secret: secret || null,
+        description: 'Test webhook (temporary)',
+        secret: secret || undefined,
         events: selectedEvents.length > 0 ? selectedEvents : ['webhook.test']
-      });
+      };
 
-      if (response.ok) {
-        showMessage('Test webhook sent successfully', 'success');
-      } else {
-        const error = await response.json();
-        showMessage(error.message || 'Failed to send test webhook', 'error');
-      }
+      const webhook = await api.createWebhook(testWebhookData);
+      await api.testWebhook(webhook.id);
+      
+      // Clean up the temporary webhook
+      await api.deleteWebhook(webhook.id);
+      
+      showMessage('Test webhook sent successfully', 'success');
     } catch (error) {
+      console.error('Test webhook error:', error);
       showMessage('Failed to test webhook', 'error');
     } finally {
       isTesting = false;
@@ -108,24 +112,19 @@
 
     isLoading = true;
     try {
-      const response = await api.post('/webhooks', {
+      await api.createWebhook({
         url,
         description: description || `Webhook for ${new URL(url).hostname}`,
-        secret: secret || null,
-        events: selectedEvents,
-        active: true
+        secret: secret || undefined,
+        events: selectedEvents
       });
 
-      if (response.ok) {
-        showMessage('Webhook created successfully', 'success');
-        setTimeout(() => {
-          goto('/settings/integrations');
-        }, 1000);
-      } else {
-        const error = await response.json();
-        showMessage(error.message || 'Failed to create webhook', 'error');
-      }
+      showMessage('Webhook created successfully', 'success');
+      setTimeout(() => {
+        goto('/settings/integrations');
+      }, 1000);
     } catch (error) {
+      console.error('Create webhook error:', error);
       showMessage('Failed to create webhook', 'error');
     } finally {
       isLoading = false;

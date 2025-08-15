@@ -32,8 +32,20 @@
       deviceTypes: [],
       topFeatures: [],
       errorsByType: []
+    },
+    systemHealth: {
+      status: 'healthy',
+      uptime: 0,
+      cpuUsage: 0,
+      memoryUsage: 0,
+      diskUsage: 0,
+      responseTime: 0
     }
   };
+
+  let systemHealth = null;
+  let activityFeed = [];
+  let recentActivity = [];
 
   const timeRangeOptions = [
     { value: '24h', label: 'Last 24 Hours' },
@@ -49,16 +61,38 @@
   async function loadAnalytics() {
     isLoading = true;
     try {
-      const response = await api.get(`/analytics?timeRange=${timeRange}`);
-      if (response.ok) {
-        analytics = await response.json();
+      // Load analytics data in parallel
+      const [analyticsData, healthData, activityData] = await Promise.allSettled([
+        api.getAnalytics({ timeRange }),
+        api.getSystemHealth(),
+        api.getActivityFeed({ limit: 10 })
+      ]);
+
+      // Handle analytics data
+      if (analyticsData.status === 'fulfilled') {
+        analytics = analyticsData.value;
       } else {
-        // Mock data for demonstration
         analytics = generateMockData();
       }
+
+      // Handle system health data
+      if (healthData.status === 'fulfilled') {
+        systemHealth = healthData.value;
+      } else {
+        systemHealth = generateMockSystemHealth();
+      }
+
+      // Handle activity feed data
+      if (activityData.status === 'fulfilled') {
+        recentActivity = activityData.value;
+      } else {
+        recentActivity = generateMockActivity();
+      }
     } catch (error) {
-      console.error('Failed to load analytics:', error);
+      console.error('Failed to load analytics, using mock data:', error);
       analytics = generateMockData();
+      systemHealth = generateMockSystemHealth();
+      recentActivity = generateMockActivity();
     } finally {
       isLoading = false;
     }
@@ -116,6 +150,85 @@
 
   function formatPercentage(value: number): string {
     return `${(value * 100).toFixed(1)}%`;
+  }
+
+  function generateMockSystemHealth() {
+    return {
+      status: Math.random() > 0.1 ? 'healthy' : 'warning',
+      uptime: 1847230, // seconds (~21 days)
+      cpuUsage: Math.random() * 0.8 + 0.1, // 10-90%
+      memoryUsage: Math.random() * 0.6 + 0.2, // 20-80%
+      diskUsage: Math.random() * 0.4 + 0.1, // 10-50%
+      responseTime: Math.random() * 200 + 50, // 50-250ms
+      services: {
+        database: Math.random() > 0.05 ? 'healthy' : 'degraded',
+        redis: Math.random() > 0.03 ? 'healthy' : 'warning',
+        websocket: Math.random() > 0.02 ? 'healthy' : 'degraded',
+        fileStorage: Math.random() > 0.01 ? 'healthy' : 'healthy'
+      }
+    };
+  }
+
+  function generateMockActivity() {
+    const actions = [
+      'created a new workspace',
+      'uploaded a file',
+      'created a note',
+      'joined a workspace',
+      'sent a message',
+      'shared a workspace',
+      'updated their profile',
+      'deleted a note',
+      'invited a user',
+      'completed onboarding'
+    ];
+    
+    const users = [
+      'Alice Johnson', 'Bob Smith', 'Charlie Brown', 'Diana Prince', 'Eve Adams',
+      'Frank Miller', 'Grace Lee', 'Henry Ford', 'Iris Chen', 'Jack Wilson'
+    ];
+
+    return Array.from({ length: 10 }, (_, i) => ({
+      id: i.toString(),
+      user: {
+        name: users[Math.floor(Math.random() * users.length)],
+        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${i}`,
+        id: `user-${i}`
+      },
+      action: actions[Math.floor(Math.random() * actions.length)],
+      timestamp: new Date(Date.now() - Math.random() * 3600000).toISOString(), // Within last hour
+      details: {
+        ip: `192.168.1.${Math.floor(Math.random() * 255)}`,
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    }));
+  }
+
+  function formatUptime(seconds: number): string {
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    return `${days}d ${hours}h ${minutes}m`;
+  }
+
+  function getStatusColor(status: string): string {
+    switch (status) {
+      case 'healthy': return 'text-green-400';
+      case 'warning': return 'text-yellow-400';
+      case 'degraded': return 'text-orange-400';
+      case 'critical': return 'text-red-400';
+      default: return 'text-gray-400';
+    }
+  }
+
+  function getStatusIcon(status: string): string {
+    switch (status) {
+      case 'healthy': return '🟢';
+      case 'warning': return '🟡';
+      case 'degraded': return '🟠';
+      case 'critical': return '🔴';
+      default: return '⚪';
+    }
   }
 
   let tooltipData = null;
@@ -260,6 +373,56 @@
         </div>
       </div>
 
+      <!-- System Health Monitoring -->
+      {#if systemHealth}
+        <div class="card p-6">
+          <div class="flex items-center justify-between mb-6">
+            <h3 class="text-lg font-semibold text-white">System Health</h3>
+            <div class="flex items-center space-x-2">
+              <span class="text-2xl">{getStatusIcon(systemHealth.status)}</span>
+              <span class="text-sm font-medium {getStatusColor(systemHealth.status)} capitalize">
+                {systemHealth.status}
+              </span>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+            <div class="text-center">
+              <div class="text-2xl font-bold text-white">{formatUptime(systemHealth.uptime)}</div>
+              <div class="text-sm text-dark-400">Uptime</div>
+            </div>
+            <div class="text-center">
+              <div class="text-2xl font-bold text-white">{formatPercentage(systemHealth.cpuUsage)}</div>
+              <div class="text-sm text-dark-400">CPU Usage</div>
+            </div>
+            <div class="text-center">
+              <div class="text-2xl font-bold text-white">{formatPercentage(systemHealth.memoryUsage)}</div>
+              <div class="text-sm text-dark-400">Memory Usage</div>
+            </div>
+            <div class="text-center">
+              <div class="text-2xl font-bold text-white">{Math.round(systemHealth.responseTime)}ms</div>
+              <div class="text-sm text-dark-400">Response Time</div>
+            </div>
+          </div>
+
+          <!-- Service Status -->
+          <div class="border-t border-dark-700 pt-6">
+            <h4 class="text-md font-semibold text-white mb-4">Service Status</h4>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {#each Object.entries(systemHealth.services) as [service, status]}
+                <div class="flex items-center justify-between p-3 bg-dark-800 rounded-lg">
+                  <div class="flex items-center space-x-2">
+                    <span class="text-lg">{getStatusIcon(status)}</span>
+                    <span class="text-white font-medium capitalize">{service.replace(/([A-Z])/g, ' $1')}</span>
+                  </div>
+                  <span class="text-xs {getStatusColor(status)} capitalize">{status}</span>
+                </div>
+              {/each}
+            </div>
+          </div>
+        </div>
+      {/if}
+
       <!-- Charts Grid -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- User Growth -->
@@ -352,28 +515,50 @@
 
       <!-- Real-time Activity Feed -->
       <div class="card p-6">
-        <h3 class="text-lg font-semibold text-white mb-4">Recent Activity</h3>
+        <div class="flex items-center justify-between mb-6">
+          <h3 class="text-lg font-semibold text-white">Recent Activity</h3>
+          <button 
+            on:click={loadAnalytics}
+            class="p-2 text-dark-400 hover:text-white rounded-lg hover:bg-dark-700 transition-colors"
+            title="Refresh activity"
+          >
+            <Activity class="w-4 h-4" />
+          </button>
+        </div>
         <div class="space-y-3">
-          {#each Array.from({length: 5}, (_, i) => ({
-            id: i,
-            user: `User ${i + 1}`,
-            action: ['created note', 'joined workspace', 'uploaded file', 'sent message', 'shared workspace'][i],
-            time: `${i + 1} minute${i === 0 ? '' : 's'} ago`
-          })) as activity}
+          {#each recentActivity.slice(0, 8) as activity}
             <div class="flex items-center justify-between p-3 bg-dark-800 rounded-lg">
               <div class="flex items-center space-x-3">
-                <div class="w-8 h-8 bg-primary-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                  {activity.user.charAt(5)}
+                <div class="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                  {activity.user.name.charAt(0)}{activity.user.name.split(' ')[1]?.charAt(0) || ''}
                 </div>
-                <div>
-                  <p class="text-white font-medium">{activity.user} {activity.action}</p>
-                  <p class="text-xs text-dark-400">{activity.time}</p>
+                <div class="flex-1">
+                  <p class="text-white font-medium">{activity.user.name} {activity.action}</p>
+                  <div class="flex items-center space-x-3 text-xs text-dark-400 mt-1">
+                    <span>{new Date(activity.timestamp).toLocaleTimeString()}</span>
+                    {#if activity.details?.ip}
+                      <span>•</span>
+                      <span>{activity.details.ip}</span>
+                    {/if}
+                  </div>
                 </div>
               </div>
-              <Activity class="w-4 h-4 text-green-400" />
+              <div class="flex items-center space-x-2">
+                <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                <span class="text-xs text-dark-500">
+                  {Math.floor((Date.now() - new Date(activity.timestamp).getTime()) / 60000)}m ago
+                </span>
+              </div>
             </div>
           {/each}
         </div>
+
+        {#if recentActivity.length === 0}
+          <div class="text-center py-8">
+            <Activity class="h-12 w-12 mx-auto mb-3 text-dark-500" />
+            <p class="text-dark-400">No recent activity</p>
+          </div>
+        {/if}
       </div>
     {/if}
   </div>

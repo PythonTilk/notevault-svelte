@@ -1,9 +1,10 @@
 import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
 import { io, type Socket } from 'socket.io-client';
-import type { ChatMessage, User } from '$lib/types';
+import type { ChatMessage, User, Notification } from '$lib/types';
 import { api } from '$lib/api';
 import { currentUser } from './auth';
+import { notificationStore } from './notifications';
 
 export const chatMessages = writable<ChatMessage[]>([]);
 export const connectedUsers = writable<User[]>([]);
@@ -63,13 +64,40 @@ export const chatStore = {
       chatMessages.update(messages => [...messages, message]);
     });
 
-    socket.on('message-sent', (message: ChatMessage) => {
+    socket.on('message-sent', (data: { messageId: string; status: 'sent' | 'delivered' }) => {
       // Message confirmation from server
-      console.log('Message sent successfully:', message);
+      console.log('Message status update:', data);
+      chatMessages.update(messages => 
+        messages.map(msg => 
+          msg.id === data.messageId 
+            ? { ...msg, deliveryStatus: data.status }
+            : msg
+        )
+      );
     });
 
-    socket.on('message-error', (error) => {
+    socket.on('message-delivered', (data: { messageId: string }) => {
+      // Message delivered confirmation
+      chatMessages.update(messages => 
+        messages.map(msg => 
+          msg.id === data.messageId 
+            ? { ...msg, deliveryStatus: 'delivered' as const }
+            : msg
+        )
+      );
+    });
+
+    socket.on('message-error', (error: { messageId?: string; error: string }) => {
       console.error('Message error:', error);
+      if (error.messageId) {
+        chatMessages.update(messages => 
+          messages.map(msg => 
+            msg.id === error.messageId 
+              ? { ...msg, deliveryStatus: 'failed' as const }
+              : msg
+          )
+        );
+      }
     });
 
     socket.on('user-online', (data) => {
@@ -93,6 +121,22 @@ export const chatStore = {
 
     socket.on('user-stopped-typing', (data) => {
       typingUsers.update(users => users.filter(id => id !== data.userId));
+    });
+
+    // Notification event handlers
+    socket.on('new-notification', (notification: Notification) => {
+      console.log('Received new notification:', notification);
+      notificationStore.add(notification);
+    });
+
+    socket.on('notification-read', (data: { notificationId: string }) => {
+      console.log('Notification marked as read:', data.notificationId);
+      // The notification store will handle this via API responses
+    });
+
+    socket.on('notification-deleted', (data: { notificationId: string }) => {
+      console.log('Notification deleted:', data.notificationId);
+      // The notification store will handle this via API responses
     });
   },
 
@@ -131,18 +175,129 @@ export const chatStore = {
   },
 
   sendMessage: async (content: string, channelId?: string, replyToId?: string) => {
+    const tempId = 'temp-' + Date.now();
+    const userId = getCurrentUserId();
+    
+    if (!userId) {
+      throw new Error('User not authenticated');
+    }
+
+    // Add temporary message with 'sending' status
+    const tempMessage: ChatMessage = {
+      id: tempId,
+      content,
+      authorId: userId,
+      author: {
+        id: userId,
+        username: 'You',
+        email: '',
+        displayName: 'You',
+        role: 'user',
+        createdAt: new Date(),
+        lastActive: new Date(),
+        isOnline: true
+      },
+      channelId,
+      replyToId,
+      createdAt: new Date(),
+      reactions: [],
+      deliveryStatus: 'sending'
+    };
+
+    // Add temp message to UI immediately
+    chatMessages.update(messages => [...messages, tempMessage]);
+
     try {
       // Send via API for persistence
       const message = await api.sendMessage({ content, channelId, replyToId });
       
+      // Update temp message with real message data and 'sent' status
+      chatMessages.update(messages => 
+        messages.map(msg => 
+          msg.id === tempId 
+            ? { ...message, deliveryStatus: 'sent' as const }
+            : msg
+        )
+      );
+      
       // Also send via socket for real-time
       if (socket?.connected) {
-        socket.emit('send-message', { content, channelId, replyToId });
+        socket.emit('send-message', { content, channelId, replyToId, messageId: message.id });
       }
       
       return message;
     } catch (error) {
       console.error('Failed to send message:', error);
+      
+      // Update temp message status to 'failed'
+      chatMessages.update(messages => 
+        messages.map(msg => 
+          msg.id === tempId 
+            ? { ...msg, deliveryStatus: 'failed' as const }
+            : msg
+        )
+      );
+      
+      throw error;
+    }
+  },
+
+  retryMessage: async (messageId: string) => {
+    let messageToRetry: ChatMessage | undefined;
+    
+    chatMessages.update(messages => {
+      messageToRetry = messages.find(msg => msg.id === messageId);
+      return messages.map(msg => 
+        msg.id === messageId 
+          ? { ...msg, deliveryStatus: 'sending' as const }
+          : msg
+      );
+    });
+
+    if (!messageToRetry) {
+      throw new Error('Message not found');
+    }
+
+    try {
+      // Retry sending the message
+      const message = await api.sendMessage({ 
+        content: messageToRetry.content, 
+        channelId: messageToRetry.channelId, 
+        replyToId: messageToRetry.replyToId 
+      });
+      
+      // Update with new message data and 'sent' status
+      chatMessages.update(messages => 
+        messages.map(msg => 
+          msg.id === messageId 
+            ? { ...message, deliveryStatus: 'sent' as const }
+            : msg
+        )
+      );
+      
+      // Also send via socket for real-time
+      if (socket?.connected) {
+        socket.emit('send-message', { 
+          content: messageToRetry.content, 
+          channelId: messageToRetry.channelId, 
+          replyToId: messageToRetry.replyToId, 
+          messageId: message.id 
+        });
+      }
+      
+      return message;
+    } catch (error) {
+      console.error('Failed to retry message:', error);
+      
+      // Update status back to 'failed'
+      chatMessages.update(messages => 
+        messages.map(msg => 
+          msg.id === messageId 
+            ? { ...msg, deliveryStatus: 'failed' as const }
+            : msg
+        )
+      );
+      
       throw error;
     }
   },

@@ -1,14 +1,19 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
-  import { Search, FileText, Users, Folder, MessageSquare } from 'lucide-svelte';
+  import { Search, FileText, Users, Folder, MessageSquare, Star, Bookmark, History } from 'lucide-svelte';
   import { api } from '$lib/api';
   import { goto } from '$app/navigation';
+  import HighlightedText from '$lib/components/HighlightedText.svelte';
+  import { getHighlightedPreview } from '$lib/utils/highlight';
+  import SavedSearches from '$lib/components/SavedSearches.svelte';
+  import { savedSearchStore } from '$lib/stores/savedSearches';
 
   let searchQuery = '';
   let searchResults: any[] = [];
   let isLoading = false;
   let searchType: 'all' | 'notes' | 'workspaces' | 'files' = 'all';
+  let showSavedSearches = false;
 
   $: searchQuery = $page.url.searchParams.get('q') || '';
 
@@ -52,6 +57,7 @@
           type: 'workspace',
           title: workspace.name,
           description: workspace.description || 'No description',
+          rawDescription: workspace.description || 'No description',
           url: `/workspaces/${workspace.id}`
         }));
         results.push(...matchingWorkspaces);
@@ -70,7 +76,8 @@
               ...note,
               type: 'note',
               title: note.title,
-              description: note.content ? note.content.substring(0, 100) + '...' : 'Empty note',
+              description: note.content ? getHighlightedPreview(note.content, lowerQuery, 80) : 'Empty note',
+              rawDescription: note.content || '',
               url: `/workspaces/${workspace.id}?note=${note.id}`,
               workspaceName: workspace.name
             }));
@@ -93,6 +100,7 @@
             type: 'file',
             title: file.name,
             description: `${formatFileSize(file.size)} • ${formatDate(new Date(file.createdAt))}`,
+            rawDescription: `${file.name} - ${formatFileSize(file.size)}`,
             url: api.getFileDownloadUrl(file.id)
           }));
           results.push(...matchingFiles);
@@ -175,6 +183,26 @@
       performSearch();
     }
   }
+
+  function handleSavedSearchSelect(event: CustomEvent) {
+    const search = event.detail.search;
+    searchType = search.searchType;
+    goto(`/search?q=${encodeURIComponent(search.query)}`);
+    showSavedSearches = false;
+  }
+
+  function saveCurrentSearch() {
+    if (searchQuery.trim()) {
+      const name = prompt('Enter a name for this search:');
+      if (name && name.trim()) {
+        savedSearchStore.save(name.trim(), searchQuery, searchType);
+      }
+    }
+  }
+
+  function toggleSavedSearches() {
+    showSavedSearches = !showSavedSearches;
+  }
 </script>
 
 <svelte:head>
@@ -189,6 +217,41 @@
       {#if searchQuery}
         <p class="text-dark-400 text-sm">Results for "{searchQuery}"</p>
       {/if}
+    </div>
+    
+    <div class="flex items-center space-x-3">
+      {#if searchQuery.trim()}
+        <button
+          class="btn-secondary text-sm"
+          on:click={saveCurrentSearch}
+          title="Save this search"
+        >
+          <Star class="w-4 h-4 mr-2" />
+          Save Search
+        </button>
+      {/if}
+      
+      <div class="relative">
+        <button
+          class="btn-ghost text-sm"
+          on:click={toggleSavedSearches}
+          title="View saved searches"
+        >
+          <Bookmark class="w-4 h-4 mr-2" />
+          Saved
+        </button>
+        
+        {#if showSavedSearches}
+          <div class="absolute top-full right-0 mt-2 w-80 z-10">
+            <SavedSearches
+              currentQuery={searchQuery}
+              currentSearchType={searchType}
+              on:select={handleSavedSearchSelect}
+              on:close={() => showSavedSearches = false}
+            />
+          </div>
+        {/if}
+      </div>
     </div>
   </div>
 </header>
@@ -266,15 +329,21 @@
             
             <div class="flex-1 min-w-0">
               <div class="flex items-center space-x-2 mb-1">
-                <h3 class="text-white font-medium truncate">{result.title}</h3>
+                <h3 class="text-white font-medium truncate">
+                  <HighlightedText text={result.title} searchTerm={searchQuery} />
+                </h3>
                 <span class="text-xs px-2 py-1 rounded-full bg-dark-700 {getTypeColor(result.type)} capitalize">
                   {result.type}
                 </span>
               </div>
               
-              <p class="text-dark-300 text-sm mb-2 line-clamp-2">
-                {result.description}
-              </p>
+              <div class="text-dark-300 text-sm mb-2 line-clamp-2">
+                {#if result.type === 'note' && result.rawDescription}
+                  {@html result.description}
+                {:else}
+                  <HighlightedText text={result.rawDescription || result.description} searchTerm={searchQuery} />
+                {/if}
+              </div>
               
               {#if result.workspaceName}
                 <div class="flex items-center space-x-1 text-xs text-dark-400">

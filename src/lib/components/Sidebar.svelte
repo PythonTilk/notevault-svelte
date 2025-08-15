@@ -14,6 +14,7 @@
   } from 'lucide-svelte';
   import { currentUser, authStore } from '$lib/stores/auth';
   import { showCreateWorkspaceModal } from '$lib/stores/modals';
+  import { unreadCount } from '$lib/stores/notifications';
   import { goto } from '$app/navigation';
   
   let searchQuery = '';
@@ -92,8 +93,19 @@
             href={item.href}
             class={isActive(item.href) ? 'sidebar-item-active' : 'sidebar-item-inactive'}
           >
-            <svelte:component this={item.icon} class="w-5 h-5 mr-3" />
-            {item.name}
+            <div class="flex items-center justify-between w-full">
+              <div class="flex items-center">
+                <svelte:component this={item.icon} class="w-5 h-5 mr-3" />
+                {item.name}
+              </div>
+              
+              <!-- Notification Badge -->
+              {#if item.name === 'Notifications' && $unreadCount > 0}
+                <span class="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-red-100 bg-red-600 rounded-full">
+                  {$unreadCount > 99 ? '99+' : $unreadCount}
+                </span>
+              {/if}
+            </div>
           </a>
         {/each}
       </div>

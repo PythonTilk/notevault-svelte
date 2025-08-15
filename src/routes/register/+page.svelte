@@ -2,6 +2,8 @@
   import { goto } from '$app/navigation';
   import { authStore } from '$lib/stores/auth';
   import { Eye, EyeOff, Mail, Lock, User } from 'lucide-svelte';
+  import { toastStore } from '$lib/stores/toast';
+  import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
 
   let username = '';
   let email = '';
@@ -15,22 +17,27 @@
 
   async function handleRegister() {
     if (!username || !email || !displayName || !password || !confirmPassword) {
-      error = 'Please fill in all fields';
+      toastStore.warning('Missing Information', 'Please fill in all fields');
       return;
     }
 
     if (password !== confirmPassword) {
-      error = 'Passwords do not match';
+      toastStore.error('Password Mismatch', 'Passwords do not match');
       return;
     }
 
     if (password.length < 6) {
-      error = 'Password must be at least 6 characters long';
+      toastStore.error('Weak Password', 'Password must be at least 6 characters long');
+      return;
+    }
+
+    // Basic email validation
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toastStore.error('Invalid Email', 'Please enter a valid email address');
       return;
     }
 
     isLoading = true;
-    error = '';
 
     try {
       const result = await authStore.register({
@@ -41,12 +48,14 @@
       });
       
       if (result.success) {
+        toastStore.success('Account Created!', 'Welcome to NoteVault! You have been logged in.');
         goto('/');
       } else {
-        error = result.error || 'Registration failed';
+        toastStore.error('Registration Failed', result.error || 'Unable to create account');
       }
     } catch (err) {
-      error = err instanceof Error ? err.message : 'Registration failed';
+      toastStore.error('Registration Error', 'Unable to connect to server. Please try again.');
+      console.error('Registration error:', err);
     } finally {
       isLoading = false;
     }
@@ -78,11 +87,6 @@
 
     <!-- Registration Form -->
     <form class="mt-8 space-y-6" on:submit|preventDefault={handleRegister}>
-      {#if error}
-        <div class="bg-red-500/10 border border-red-500 rounded-lg p-4">
-          <p class="text-red-400 text-sm">{error}</p>
-        </div>
-      {/if}
 
       <div class="space-y-4">
         <!-- Username -->
@@ -231,8 +235,8 @@
         >
           {#if isLoading}
             <div class="flex items-center justify-center">
-              <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-              Creating account...
+              <LoadingSpinner size="sm" color="white" />
+              <span class="ml-2">Creating account...</span>
             </div>
           {:else}
             Create account

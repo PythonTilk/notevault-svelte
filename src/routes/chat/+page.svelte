@@ -55,6 +55,15 @@
     input?.focus();
   }
 
+  async function handleRetry(event: CustomEvent<{ messageId: string }>) {
+    try {
+      await chatStore.retryMessage(event.detail.messageId);
+    } catch (error) {
+      console.error('Failed to retry message:', error);
+      // Could show a toast notification here
+    }
+  }
+
   function insertEmoji(emoji: string) {
     messageInput += emoji;
     showEmojiPicker = false;
@@ -127,6 +136,7 @@
             currentUserId={$currentUser?.id || '1'}
             on:react={handleReaction}
             on:reply={handleReply}
+            on:retry={handleRetry}
           />
         {/each}
       {/if}

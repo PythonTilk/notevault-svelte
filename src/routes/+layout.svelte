@@ -5,13 +5,114 @@
   import { authStore, isAuthenticated, isLoading } from '$lib/stores/auth';
   import { goto } from '$app/navigation';
   import Sidebar from '$lib/components/Sidebar.svelte';
+  import CommandPalette from '$lib/components/CommandPalette.svelte';
+  import ToastContainer from '$lib/components/ToastContainer.svelte';
 
   // Public routes that don't require authentication
   const publicRoutes = ['/login', '/register', '/forgot-password', '/reset-password'];
+  
+  // Command Palette state
+  let showCommandPalette = false;
 
   onMount(() => {
     authStore.checkAuth();
   });
+  
+  function handleCommandExecuted(event) {
+    const { command } = event.detail;
+    
+    switch (command) {
+      // Navigation commands
+      case 'go-to-dashboard':
+      case 'go-to-home':
+        goto('/');
+        break;
+      case 'go-to-workspaces':
+        goto('/');
+        break;
+      case 'go-to-chat':
+        goto('/chat');
+        break;
+      case 'go-to-files':
+        goto('/files');
+        break;
+      case 'go-to-calendar':
+        goto('/calendar');
+        break;
+      case 'go-to-notifications':
+        goto('/notifications');
+        break;
+      case 'go-to-admin':
+        goto('/admin');
+        break;
+      
+      // Action commands
+      case 'new-workspace':
+        goto('/?action=create-workspace');
+        break;
+      case 'new-note':
+        goto('/?action=create-note');
+        break;
+      case 'upload-file':
+        goto('/files?action=upload');
+        break;
+      case 'schedule-meeting':
+        goto('/calendar?action=create-event');
+        break;
+        
+      // Search commands
+      case 'search-notes':
+      case 'search-everything':
+        goto('/search');
+        break;
+      case 'find-workspace':
+        goto('/search?type=workspaces');
+        break;
+      case 'find-files':
+        goto('/search?type=files');
+        break;
+      
+      // Settings commands
+      case 'open-settings':
+        goto('/settings');
+        break;
+      case 'open-integrations':
+        goto('/settings/integrations');
+        break;
+      case 'change-theme':
+        goto('/settings?tab=appearance');
+        break;
+      case 'change-preferences':
+        goto('/settings?tab=preferences');
+        break;
+        
+      // UI commands
+      case 'toggle-sidebar':
+        // Dispatch custom event that Sidebar can listen to
+        window.dispatchEvent(new CustomEvent('toggle-sidebar'));
+        break;
+      case 'toggle-right-panel':
+        window.dispatchEvent(new CustomEvent('toggle-right-panel'));
+        break;
+      case 'focus-mode':
+        window.dispatchEvent(new CustomEvent('toggle-focus-mode'));
+        break;
+        
+      // Help commands
+      case 'show-help':
+        window.open('https://docs.notevault.com', '_blank');
+        break;
+      case 'show-shortcuts':
+        goto('/settings?tab=shortcuts');
+        break;
+      case 'show-about':
+        goto('/settings?tab=about');
+        break;
+        
+      default:
+        console.log('Command not implemented:', command);
+    }
+  }
 
   $: {
     if (!$isLoading && !$isAuthenticated && !publicRoutes.includes($page.url.pathname)) {
@@ -42,9 +143,19 @@
   <Sidebar>
     <slot />
   </Sidebar>
+  
+  <!-- Command Palette (only for authenticated users) -->
+  <CommandPalette 
+    bind:isOpen={showCommandPalette}
+    on:execute={handleCommandExecuted}
+    on:close={() => showCommandPalette = false}
+  />
 {:else}
   <!-- Public layout without sidebar -->
   <div class="min-h-screen bg-dark-950">
     <slot />
   </div>
 {/if}
+
+<!-- Global Toast Notifications -->
+<ToastContainer />

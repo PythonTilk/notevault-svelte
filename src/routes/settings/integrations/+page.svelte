@@ -39,36 +39,34 @@
 
   async function loadIntegrations() {
     try {
-      const response = await api.get('/integrations/status');
-      if (response.ok) {
-        integrations = await response.json();
-      }
+      integrations = await api.getIntegrationsStatus();
     } catch (error) {
       console.error('Failed to load integrations:', error);
+      // Keep mock data as fallback for demonstration
     }
   }
 
   async function loadWebhooks() {
     try {
-      const response = await api.get('/webhooks');
-      if (response.ok) {
-        webhooks = await response.json();
-      }
+      webhooks = await api.getWebhooks();
     } catch (error) {
       console.error('Failed to load webhooks:', error);
+      // Start with empty array instead of fallback data
+      webhooks = [];
     }
   }
 
   async function connectIntegration(provider: string) {
     try {
-      const response = await api.post(`/integrations/${provider}/connect`);
-      if (response.ok) {
-        const data = await response.json();
-        if (data.authUrl) {
-          window.open(data.authUrl, '_blank', 'width=600,height=600');
-          // Poll for connection status
-          pollConnectionStatus(provider);
-        }
+      const data = await api.connectIntegration(provider);
+      if (data.authUrl) {
+        window.open(data.authUrl, '_blank', 'width=600,height=600');
+        // Poll for connection status
+        pollConnectionStatus(provider);
+      } else {
+        // For providers that don't need OAuth, mark as connected directly
+        integrations[provider].connected = true;
+        showMessage(`${provider} connected successfully`, 'success');
       }
     } catch (error) {
       showMessage(`Failed to connect ${provider}`, 'error');
@@ -81,11 +79,9 @@
     }
 
     try {
-      const response = await api.delete(`/integrations/${provider}`);
-      if (response.ok) {
-        integrations[provider].connected = false;
-        showMessage(`${provider} disconnected successfully`, 'success');
-      }
+      await api.disconnectIntegration(provider);
+      integrations[provider].connected = false;
+      showMessage(`${provider} disconnected successfully`, 'success');
     } catch (error) {
       showMessage(`Failed to disconnect ${provider}`, 'error');
     }
@@ -94,14 +90,11 @@
   function pollConnectionStatus(provider: string) {
     const interval = setInterval(async () => {
       try {
-        const response = await api.get(`/integrations/${provider}/status`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.connected) {
-            integrations[provider] = data;
-            showMessage(`${provider} connected successfully!`, 'success');
-            clearInterval(interval);
-          }
+        const data = await api.getIntegrationStatus(provider);
+        if (data.connected) {
+          integrations[provider] = data;
+          showMessage(`${provider} connected successfully!`, 'success');
+          clearInterval(interval);
         }
       } catch (error) {
         console.error('Failed to check connection status:', error);
@@ -114,10 +107,8 @@
 
   async function testWebhook(webhookId: string) {
     try {
-      const response = await api.post(`/webhooks/${webhookId}/test`);
-      if (response.ok) {
-        showMessage('Webhook test sent successfully', 'success');
-      }
+      await api.testWebhook(webhookId);
+      showMessage('Webhook test sent successfully', 'success');
     } catch (error) {
       showMessage('Failed to test webhook', 'error');
     }
@@ -129,11 +120,9 @@
     }
 
     try {
-      const response = await api.delete(`/webhooks/${webhookId}`);
-      if (response.ok) {
-        webhooks = webhooks.filter(w => w.id !== webhookId);
-        showMessage('Webhook deleted successfully', 'success');
-      }
+      await api.deleteWebhook(webhookId);
+      webhooks = webhooks.filter(w => w.id !== webhookId);
+      showMessage('Webhook deleted successfully', 'success');
     } catch (error) {
       showMessage('Failed to delete webhook', 'error');
     }

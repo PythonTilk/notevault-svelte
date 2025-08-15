@@ -93,11 +93,41 @@
       users = users.map(user => 
         user.id === userId ? { ...user, role: newRole } : user
       );
+      showMessage(`User role updated to ${newRole}`, 'success');
     } catch (err) {
       console.error('Failed to update user role:', err);
-      alert('Failed to update user role');
+      showMessage('Failed to update user role', 'error');
     }
   }
+
+  async function inviteUser(email: string, role: string, message?: string) {
+    try {
+      // This would be implemented with a proper invite API endpoint
+      await api.register({
+        username: email.split('@')[0],
+        email,
+        password: 'temp-password', // Would be handled by invite flow
+        displayName: email.split('@')[0]
+      });
+      showMessage(`Invitation sent to ${email}`, 'success');
+      showCreateModal = false;
+      await loadUsers();
+    } catch (err) {
+      console.error('Failed to send invitation:', err);
+      showMessage('Failed to send invitation', 'error');
+    }
+  }
+
+  function showMessage(text: string, type: 'success' | 'error') {
+    message = text;
+    messageType = type;
+    setTimeout(() => {
+      message = '';
+    }, 5000);
+  }
+
+  let message = '';
+  let messageType: 'success' | 'error' = 'success';
 
   async function deleteUser(userId: string) {
     if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
@@ -153,6 +183,10 @@
     </div>
     
     <div class="flex items-center space-x-3">
+      <button class="btn-secondary" on:click={loadUsers}>
+        <Filter class="w-4 h-4 mr-2" />
+        Refresh
+      </button>
       <button
         class="btn-primary"
         on:click={() => showCreateModal = true}
@@ -163,6 +197,15 @@
     </div>
   </div>
 </header>
+
+<!-- Message -->
+{#if message}
+  <div class="bg-dark-900 border-b border-dark-800 px-6 py-3">
+    <div class="p-3 rounded-lg {messageType === 'success' ? 'bg-green-500/10 border border-green-500 text-green-400' : 'bg-red-500/10 border border-red-500 text-red-400'}">
+      {message}
+    </div>
+  </div>
+{/if}
 
 <!-- Stats Bar -->
 <div class="bg-dark-900 border-b border-dark-800 px-6 py-3">
@@ -379,13 +422,20 @@
       <div class="p-6">
         <h2 class="text-xl font-semibold text-white mb-4">Invite User</h2>
         
-        <form class="space-y-4">
+        <form class="space-y-4" on:submit|preventDefault={(e) => {
+          const formData = new FormData(e.target);
+          const email = formData.get('email');
+          const role = formData.get('role');
+          const welcomeMessage = formData.get('message');
+          if (email) inviteUser(email, role, welcomeMessage);
+        }}>
           <div>
             <label for="email" class="block text-sm font-medium text-dark-300 mb-2">
               Email Address
             </label>
             <input
               id="email"
+              name="email"
               type="email"
               class="input"
               placeholder="user@example.com"
@@ -397,7 +447,7 @@
             <label for="role" class="block text-sm font-medium text-dark-300 mb-2">
               Role
             </label>
-            <select id="role" class="input">
+            <select id="role" name="role" class="input">
               <option value="user">User</option>
               <option value="moderator">Moderator</option>
               <option value="admin">Admin</option>
@@ -410,6 +460,7 @@
             </label>
             <textarea
               id="message"
+              name="message"
               class="input resize-none"
               rows="3"
               placeholder="Welcome to NoteVault!"

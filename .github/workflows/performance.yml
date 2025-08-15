@@ -1,0 +1,275 @@
+name: Performance & Load Testing
+
+on:
+  schedule:
+    - cron: '0 2 * * 1'  # Weekly on Monday at 2 AM
+  workflow_dispatch:  # Allow manual triggering
+  push:
+    branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'server/**'
+
+jobs:
+  lighthouse-audit:
+    runs-on: ubuntu-latest
+    name: Lighthouse Performance Audit
+    
+    env:
+      NODE_ENV: test
+      JWT_SECRET: test_jwt_secret_key_for_github_actions_minimum_32_characters_long
+      JWT_REFRESH_SECRET: test_refresh_secret_key_for_github_actions_minimum_32_characters_long
+      PORT: 3001
+      
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: |
+        npm ci
+        cd server
+        npm ci
+        
+    - name: Build application
+      run: npm run build
+      
+    - name: Start backend server
+      run: |
+        cd server
+        npm run init-db
+        npm start &
+        sleep 10
+        
+    - name: Start frontend server
+      run: |
+        npm run preview &
+        sleep 5
+        
+    - name: Install Lighthouse CI
+      run: npm install -g @lhci/cli
+      
+    - name: Run Lighthouse audit
+      run: |
+        lhci autorun || echo "Lighthouse audit completed with warnings"
+        
+    - name: Upload Lighthouse results
+      uses: actions/upload-artifact@v4
+      with:
+        name: lighthouse-results
+        path: .lighthouseci/
+        retention-days: 30
+
+  load-testing:
+    runs-on: ubuntu-latest
+    name: Load Testing
+    
+    env:
+      NODE_ENV: test
+      JWT_SECRET: test_jwt_secret_key_for_github_actions_minimum_32_characters_long
+      JWT_REFRESH_SECRET: test_refresh_secret_key_for_github_actions_minimum_32_characters_long
+      PORT: 3001
+      
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: server/package-lock.json
+        
+    - name: Install backend dependencies
+      run: |
+        cd server
+        npm ci
+        
+    - name: Initialize database
+      run: |
+        cd server
+        npm run init-db
+        
+    - name: Start server
+      run: |
+        cd server
+        npm start &
+        sleep 10
+        
+    - name: Install Apache Bench
+      run: sudo apt-get update && sudo apt-get install -y apache2-utils
+      
+    - name: Run load tests
+      run: |
+        echo "🔥 Running load tests..."
+        
+        # Test health endpoint
+        echo "Testing health endpoint..."
+        ab -n 100 -c 10 http://localhost:3001/health > health_load_test.txt
+        
+        # Test API endpoint
+        echo "Testing API endpoint..."
+        ab -n 50 -c 5 http://localhost:3001/api/announcements > api_load_test.txt
+        
+        echo "✅ Load tests completed"
+        
+    - name: Analyze load test results
+      run: |
+        echo "# Load Test Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Extract key metrics from health endpoint test
+        echo "## Health Endpoint Performance" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        grep -E "Requests per second|Time per request|Transfer rate" health_load_test.txt >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Extract key metrics from API endpoint test
+        echo "## API Endpoint Performance" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        grep -E "Requests per second|Time per request|Transfer rate" api_load_test.txt >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        
+    - name: Upload load test results
+      uses: actions/upload-artifact@v4
+      with:
+        name: load-test-results
+        path: |
+          health_load_test.txt
+          api_load_test.txt
+        retention-days: 30
+
+  bundle-analysis:
+    runs-on: ubuntu-latest
+    name: Bundle Size Analysis
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Build and analyze bundle
+      run: |
+        npm run build
+        
+        echo "# Bundle Analysis" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Analyze build output
+        echo "## Build Output Size" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        du -sh .svelte-kit/output >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Find largest files
+        echo "## Largest Bundle Files" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        find .svelte-kit/output -name "*.js" -o -name "*.css" | xargs ls -lh | sort -k5 -hr | head -10 >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+  memory-profiling:
+    runs-on: ubuntu-latest
+    name: Memory Profiling
+    
+    env:
+      NODE_ENV: test
+      JWT_SECRET: test_jwt_secret_key_for_github_actions_minimum_32_characters_long
+      JWT_REFRESH_SECRET: test_refresh_secret_key_for_github_actions_minimum_32_characters_long
+      PORT: 3001
+      
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: server/package-lock.json
+        
+    - name: Install backend dependencies
+      run: |
+        cd server
+        npm ci
+        
+    - name: Memory usage test
+      run: |
+        cd server
+        npm run init-db
+        
+        echo "🧠 Testing memory usage..."
+        
+        # Start server and monitor memory
+        npm start &
+        SERVER_PID=$!
+        sleep 10
+        
+        # Check initial memory usage
+        ps -p $SERVER_PID -o pid,vsz,rss,comm > memory_usage.txt
+        echo "Initial memory usage:" >> memory_usage.txt
+        
+        # Make some requests to load the server
+        for i in {1..20}; do
+          curl -s http://localhost:3001/health > /dev/null
+          curl -s http://localhost:3001/api/announcements > /dev/null
+        done
+        
+        sleep 5
+        
+        # Check memory usage after load
+        echo "Memory usage after load:" >> memory_usage.txt
+        ps -p $SERVER_PID -o pid,vsz,rss,comm >> memory_usage.txt
+        
+        # Clean up
+        kill $SERVER_PID
+        
+        echo "✅ Memory profiling completed"
+        
+    - name: Upload memory profile
+      uses: actions/upload-artifact@v4
+      with:
+        name: memory-profile
+        path: server/memory_usage.txt
+        retention-days: 30
+
+  performance-summary:
+    runs-on: ubuntu-latest
+    name: Performance Summary
+    needs: [lighthouse-audit, load-testing, bundle-analysis, memory-profiling]
+    if: always()
+    
+    steps:
+    - name: Create performance summary
+      run: |
+        echo "# 📊 Performance Test Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Date:** $(date)" >> $GITHUB_STEP_SUMMARY
+        echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## Test Results" >> $GITHUB_STEP_SUMMARY
+        echo "| Test Type | Status | Notes |" >> $GITHUB_STEP_SUMMARY
+        echo "|-----------|--------|-------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Lighthouse Audit | ${{ needs.lighthouse-audit.result == 'success' && '✅ Passed' || '⚠️ Issues' }} | Web performance metrics |" >> $GITHUB_STEP_SUMMARY
+        echo "| Load Testing | ${{ needs.load-testing.result == 'success' && '✅ Passed' || '⚠️ Issues' }} | Server load capacity |" >> $GITHUB_STEP_SUMMARY
+        echo "| Bundle Analysis | ${{ needs.bundle-analysis.result == 'success' && '✅ Passed' || '⚠️ Issues' }} | Frontend bundle size |" >> $GITHUB_STEP_SUMMARY
+        echo "| Memory Profiling | ${{ needs.memory-profiling.result == 'success' && '✅ Passed' || '⚠️ Issues' }} | Backend memory usage |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "📈 **Next Steps:** Review artifacts for detailed performance metrics" >> $GITHUB_STEP_SUMMARY

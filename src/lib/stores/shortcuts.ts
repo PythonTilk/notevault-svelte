@@ -41,7 +41,7 @@ export const defaultShortcuts: ShortcutMap = {
     description: 'Toggle right panel',
     category: 'Navigation'
   },
-  'mod+shift+d': { 
+  'mod+shift+f': { 
     action: 'focus-mode', 
     description: 'Toggle focus mode',
     category: 'Navigation'
@@ -105,7 +105,7 @@ export const defaultShortcuts: ShortcutMap = {
     description: 'Search in notes',
     category: 'Search'
   },
-  'mod+shift+f': { 
+  'mod+h': { 
     action: 'search-replace', 
     description: 'Search and replace',
     category: 'Search'

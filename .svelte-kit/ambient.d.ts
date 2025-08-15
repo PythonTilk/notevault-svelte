@@ -138,6 +138,7 @@ declare module '$env/static/private' {
 	export const NOTIFY_SOCKET: string;
 	export const DISPLAY: string;
 	export const npm_lifecycle_event: string;
+	export const GSK_RENDERER: string;
 	export const SHLVL: string;
 	export const MOZ_ENABLE_WAYLAND: string;
 	export const GIT_EDITOR: string;
@@ -313,6 +314,7 @@ declare module '$env/dynamic/private' {
 		NOTIFY_SOCKET: string;
 		DISPLAY: string;
 		npm_lifecycle_event: string;
+		GSK_RENDERER: string;
 		SHLVL: string;
 		MOZ_ENABLE_WAYLAND: string;
 		GIT_EDITOR: string;

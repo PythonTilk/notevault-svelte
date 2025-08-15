@@ -44,155 +44,198 @@
 
   async function loadBots() {
     try {
-      const response = await api.get('/bots');
-      if (response.ok) {
-        bots = await response.json();
-      } else {
-        // Mock data
-        bots = [
-          {
-            id: 'slack-bot-1',
-            name: 'NoteVault Slack Bot',
-            platform: 'slack',
-            status: 'active',
-            teamName: 'Development Team',
-            channels: ['#general', '#dev-team', '#notevault'],
-            commandCount: 156,
-            lastActive: new Date(Date.now() - 300000).toISOString(),
-            enabled: true
-          },
-          {
-            id: 'discord-bot-1',
-            name: 'NoteVault Discord Bot',
-            platform: 'discord',
-            status: 'active',
-            guildName: 'NoteVault Community',
-            channels: ['general', 'development', 'support'],
-            commandCount: 89,
-            lastActive: new Date(Date.now() - 600000).toISOString(),
-            enabled: true
-          }
-        ];
-      }
+      isLoading = true;
+      const botsData = await api.getBots();
+      bots = botsData.map((bot: any) => ({
+        id: bot.id,
+        name: bot.name,
+        platform: bot.platform,
+        status: bot.status || 'active',
+        teamName: bot.teamName,
+        guildName: bot.guildName,
+        channels: bot.channels || [],
+        commandCount: bot.commandCount || 0,
+        lastActive: bot.lastActive || new Date().toISOString(),
+        enabled: bot.enabled !== false
+      }));
     } catch (error) {
       console.error('Failed to load bots:', error);
+      // Mock data fallback
+      bots = [
+        {
+          id: 'slack-bot-1',
+          name: 'NoteVault Slack Bot',
+          platform: 'slack',
+          status: 'active',
+          teamName: 'Development Team',
+          channels: ['#general', '#dev-team', '#notevault'],
+          commandCount: 156,
+          lastActive: new Date(Date.now() - 300000).toISOString(),
+          enabled: true
+        },
+        {
+          id: 'discord-bot-1',
+          name: 'NoteVault Discord Bot',
+          platform: 'discord',
+          status: 'active',
+          guildName: 'NoteVault Community',
+          channels: ['general', 'development', 'support'],
+          commandCount: 89,
+          lastActive: new Date(Date.now() - 600000).toISOString(),
+          enabled: true
+        }
+      ];
+    } finally {
+      isLoading = false;
     }
   }
 
   async function loadCommands() {
     try {
-      const response = await api.get('/bots/commands');
-      if (response.ok) {
-        commands = await response.json();
-      } else {
-        // Mock commands
-        commands = [
-          {
-            name: 'help',
-            description: 'Show available commands',
-            usage: '/notevault help',
-            category: 'General',
-            enabled: true
-          },
-          {
-            name: 'status',
-            description: 'Show system status',
-            usage: '/notevault status',
-            category: 'System',
-            enabled: true
-          },
-          {
-            name: 'create',
-            description: 'Create a new workspace',
-            usage: '/notevault create [name]',
-            category: 'Workspace',
-            enabled: true
-          },
-          {
-            name: 'list',
-            description: 'List your workspaces',
-            usage: '/notevault list',
-            category: 'Workspace',
-            enabled: true
-          },
-          {
-            name: 'search',
-            description: 'Search notes and workspaces',
-            usage: '/notevault search [query]',
-            category: 'Search',
-            enabled: true
-          },
-          {
-            name: 'activity',
-            description: 'Show recent activity',
-            usage: '/notevault activity',
-            category: 'General',
-            enabled: true
-          }
-        ];
-      }
+      const commandsData = await api.getBotCommands();
+      commands = commandsData.map((command: any) => ({
+        id: command.id,
+        name: command.name,
+        description: command.description,
+        usage: command.usage || `/notevault ${command.name}`,
+        category: command.category || 'General',
+        enabled: command.enabled !== false,
+        botId: command.botId,
+        response: command.response,
+        triggers: command.triggers || []
+      }));
     } catch (error) {
       console.error('Failed to load commands:', error);
+      // Mock commands fallback
+      commands = [
+        {
+          id: '1',
+          name: 'help',
+          description: 'Show available commands',
+          usage: '/notevault help',
+          category: 'General',
+          enabled: true,
+          response: 'Here are the available commands...',
+          triggers: ['help', 'h']
+        },
+        {
+          id: '2',
+          name: 'status',
+          description: 'Show system status',
+          usage: '/notevault status',
+          category: 'System',
+          enabled: true,
+          response: 'System is operational',
+          triggers: ['status', 'health']
+        },
+        {
+          id: '3',
+          name: 'create',
+          description: 'Create a new workspace',
+          usage: '/notevault create [name]',
+          category: 'Workspace',
+          enabled: true,
+          response: 'Creating workspace...',
+          triggers: ['create', 'new']
+        },
+        {
+          id: '4',
+          name: 'list',
+          description: 'List your workspaces',
+          usage: '/notevault list',
+          category: 'Workspace',
+          enabled: true,
+          response: 'Your workspaces...',
+          triggers: ['list', 'workspaces']
+        },
+        {
+          id: '5',
+          name: 'search',
+          description: 'Search notes and workspaces',
+          usage: '/notevault search [query]',
+          category: 'Search',
+          enabled: true,
+          response: 'Searching...',
+          triggers: ['search', 'find']
+        },
+        {
+          id: '6',
+          name: 'activity',
+          description: 'Show recent activity',
+          usage: '/notevault activity',
+          category: 'General',
+          enabled: true,
+          response: 'Recent activity...',
+          triggers: ['activity', 'recent']
+        }
+      ];
     }
   }
 
   async function loadCommandHistory() {
     try {
-      const response = await api.get('/bots/history?limit=20');
-      if (response.ok) {
-        commandHistory = await response.json();
-      } else {
-        // Mock history
-        commandHistory = [
-          {
-            id: '1',
-            command: '/notevault status',
-            user: 'john.doe',
-            platform: 'slack',
-            channel: '#general',
-            timestamp: new Date(Date.now() - 300000).toISOString(),
-            success: true,
-            response: 'System is operational'
-          },
-          {
-            id: '2',
-            command: '/notevault create "New Project"',
-            user: 'jane.smith',
-            platform: 'discord',
-            channel: 'development',
-            timestamp: new Date(Date.now() - 600000).toISOString(),
-            success: true,
-            response: 'Workspace "New Project" created successfully'
-          },
-          {
-            id: '3',
-            command: '/notevault help',
-            user: 'bob.wilson',
-            platform: 'slack',
-            channel: '#dev-team',
-            timestamp: new Date(Date.now() - 900000).toISOString(),
-            success: true,
-            response: 'Available commands listed'
-          }
-        ];
-      }
+      // Try to get command history from bot analytics
+      const historyData = await api.getBotHistory({ limit: 20 });
+      commandHistory = historyData.map((item: any) => ({
+        id: item.id,
+        command: item.command,
+        user: item.user,
+        platform: item.platform,
+        channel: item.channel,
+        timestamp: item.timestamp,
+        success: item.success !== false,
+        response: item.response
+      }));
     } catch (error) {
       console.error('Failed to load command history:', error);
+      // Mock history fallback
+      commandHistory = [
+        {
+          id: '1',
+          command: '/notevault status',
+          user: 'john.doe',
+          platform: 'slack',
+          channel: '#general',
+          timestamp: new Date(Date.now() - 300000).toISOString(),
+          success: true,
+          response: 'System is operational'
+        },
+        {
+          id: '2',
+          command: '/notevault create "New Project"',
+          user: 'jane.smith',
+          platform: 'discord',
+          channel: 'development',
+          timestamp: new Date(Date.now() - 600000).toISOString(),
+          success: true,
+          response: 'Workspace "New Project" created successfully'
+        },
+        {
+          id: '3',
+          command: '/notevault help',
+          user: 'bob.wilson',
+          platform: 'slack',
+          channel: '#dev-team',
+          timestamp: new Date(Date.now() - 900000).toISOString(),
+          success: true,
+          response: 'Available commands listed'
+        }
+      ];
     }
   }
 
   async function toggleBot(botId: string) {
     try {
       const bot = bots.find(b => b.id === botId);
-      const response = await api.patch(`/bots/${botId}`, {
+      if (!bot) return;
+      
+      await api.updateBot(botId, {
         enabled: !bot.enabled
       });
       
-      if (response.ok) {
-        bot.enabled = !bot.enabled;
-        bot.status = bot.enabled ? 'active' : 'inactive';
-        bots = [...bots];
-      }
+      bot.enabled = !bot.enabled;
+      bot.status = bot.enabled ? 'active' : 'inactive';
+      bots = [...bots];
     } catch (error) {
       console.error('Failed to toggle bot:', error);
     }
@@ -204,10 +247,8 @@
     }
 
     try {
-      const response = await api.delete(`/bots/${botId}`);
-      if (response.ok) {
-        bots = bots.filter(b => b.id !== botId);
-      }
+      await api.deleteBot(botId);
+      bots = bots.filter(b => b.id !== botId);
     } catch (error) {
       console.error('Failed to delete bot:', error);
     }
@@ -217,7 +258,7 @@
     if (!commandInput.trim()) return;
 
     try {
-      const response = await api.post('/bots/test-command', {
+      const response = await api.testBotCommand({
         command: commandInput,
         platform: 'web',
         channel: selectedChannel || 'test'
@@ -230,14 +271,28 @@
         platform: 'web',
         channel: selectedChannel || 'test',
         timestamp: new Date().toISOString(),
-        success: response.ok,
-        response: response.ok ? await response.text() : 'Command failed'
+        success: true,
+        response: response.message || 'Command executed successfully'
       };
 
       commandHistory = [historyItem, ...commandHistory.slice(0, 19)];
       commandInput = '';
     } catch (error) {
       console.error('Failed to test command:', error);
+      
+      const historyItem = {
+        id: Date.now().toString(),
+        command: commandInput,
+        user: 'admin',
+        platform: 'web',
+        channel: selectedChannel || 'test',
+        timestamp: new Date().toISOString(),
+        success: false,
+        response: 'Command failed to execute'
+      };
+
+      commandHistory = [historyItem, ...commandHistory.slice(0, 19)];
+      commandInput = '';
     }
   }
 
@@ -266,6 +321,45 @@
   }
 
   const commandCategories = [...new Set(commands.map(c => c.category))];
+
+  async function createBot(event: Event) {
+    event.preventDefault();
+    
+    if (!newBot.name.trim() || !newBot.token.trim()) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    try {
+      const botData = {
+        name: newBot.name,
+        platform: newBot.platform as 'slack' | 'discord',
+        description: newBot.description,
+        token: newBot.token,
+        channels: newBot.channels,
+        enabled: newBot.enabled
+      };
+
+      await api.createBot(botData);
+      
+      // Reset form and close modal
+      newBot = {
+        name: '',
+        platform: 'slack',
+        description: '',
+        token: '',
+        channels: [],
+        enabled: true
+      };
+      showCreateModal = false;
+      
+      // Reload bots list
+      await loadBots();
+    } catch (error) {
+      console.error('Failed to create bot:', error);
+      alert('Failed to create bot. Please try again.');
+    }
+  }
 </script>
 
 <svelte:head>
@@ -287,7 +381,7 @@
           </button>
         </div>
 
-        <form class="space-y-4">
+        <form on:submit={createBot} class="space-y-4">
           <div>
             <label class="block text-sm font-medium text-dark-300 mb-2">Platform</label>
             <select bind:value={newBot.platform} class="input">

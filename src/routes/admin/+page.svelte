@@ -296,11 +296,54 @@
       </div>
     </div>
 
+    <!-- Quick Actions -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+      <a href="/admin/users" class="card p-6 hover:bg-dark-800/50 transition-colors">
+        <div class="flex items-center space-x-4">
+          <Users class="w-8 h-8 text-blue-400" />
+          <div>
+            <h4 class="font-semibold text-white">User Management</h4>
+            <p class="text-sm text-dark-400">Manage users and permissions</p>
+          </div>
+        </div>
+      </a>
+
+      <a href="/admin/workspaces" class="card p-6 hover:bg-dark-800/50 transition-colors">
+        <div class="flex items-center space-x-4">
+          <FileText class="w-8 h-8 text-green-400" />
+          <div>
+            <h4 class="font-semibold text-white">Workspaces</h4>
+            <p class="text-sm text-dark-400">Monitor and manage workspaces</p>
+          </div>
+        </div>
+      </a>
+
+      <a href="/admin/audit-logs" class="card p-6 hover:bg-dark-800/50 transition-colors">
+        <div class="flex items-center space-x-4">
+          <Activity class="w-8 h-8 text-purple-400" />
+          <div>
+            <h4 class="font-semibold text-white">Audit Logs</h4>
+            <p class="text-sm text-dark-400">View system activity and security logs</p>
+          </div>
+        </div>
+      </a>
+
+      <a href="/admin/announcements" class="card p-6 hover:bg-dark-800/50 transition-colors">
+        <div class="flex items-center space-x-4">
+          <MessageSquare class="w-8 h-8 text-yellow-400" />
+          <div>
+            <h4 class="font-semibold text-white">Announcements</h4>
+            <p class="text-sm text-dark-400">Manage system announcements</p>
+          </div>
+        </div>
+      </a>
+    </div>
+
     <!-- Recent Activity -->
     <div class="card">
       <div class="flex items-center justify-between mb-4">
         <h3 class="text-lg font-semibold text-white">Recent Activity</h3>
-        <a href="/admin/logs" class="text-sm text-primary-400 hover:text-primary-300">
+        <a href="/admin/audit-logs" class="text-sm text-primary-400 hover:text-primary-300">
           View all logs
         </a>
       </div>

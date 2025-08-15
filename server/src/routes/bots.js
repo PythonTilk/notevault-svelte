@@ -184,7 +184,7 @@ router.post('/discord/interactions', async (req, res) => {
  *                 items:
  *                   type: string
  *                   enum: [slack, discord]
- *                 description: Target platforms (default: all configured)
+ *                 description: "Target platforms (default: all configured)"
  *               slackOptions:
  *                 type: object
  *                 properties:

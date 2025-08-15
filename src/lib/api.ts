@@ -398,6 +398,344 @@ class ApiClient {
       method: 'DELETE',
     });
   }
+
+  // Notification endpoints
+  async getNotifications(params?: {
+    limit?: number;
+    offset?: number;
+    unreadOnly?: boolean;
+  }) {
+    const query = new URLSearchParams();
+    if (params?.limit) query.set('limit', params.limit.toString());
+    if (params?.offset) query.set('offset', params.offset.toString());
+    if (params?.unreadOnly) query.set('unreadOnly', 'true');
+    
+    return this.request(`/notifications?${query}`);
+  }
+
+  async markNotificationAsRead(notificationId: string) {
+    return this.request(`/notifications/${notificationId}/read`, {
+      method: 'PUT',
+    });
+  }
+
+  async markAllNotificationsAsRead() {
+    return this.request('/notifications/mark-all-read', {
+      method: 'PUT',
+    });
+  }
+
+  async deleteNotification(notificationId: string) {
+    return this.request(`/notifications/${notificationId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getNotificationCount() {
+    return this.request('/notifications/count');
+  }
+
+  // Calendar endpoints
+  async getConnectedCalendars() {
+    return this.request('/integrations/calendars');
+  }
+
+  async connectCalendar(provider: 'google' | 'outlook', authCode: string) {
+    return this.request('/integrations/calendars/connect', {
+      method: 'POST',
+      body: JSON.stringify({ provider, authCode }),
+    });
+  }
+
+  async disconnectCalendar(calendarId: string) {
+    return this.request(`/integrations/calendars/${calendarId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getCalendarEvents(params?: {
+    calendarId?: string;
+    start?: string;
+    end?: string;
+    limit?: number;
+  }) {
+    const query = new URLSearchParams();
+    if (params?.calendarId) query.set('calendarId', params.calendarId);
+    if (params?.start) query.set('start', params.start);
+    if (params?.end) query.set('end', params.end);
+    if (params?.limit) query.set('limit', params.limit.toString());
+    
+    return this.request(`/calendar/events?${query}`);
+  }
+
+  async createCalendarEvent(event: {
+    title: string;
+    description?: string;
+    startTime: string;
+    endTime: string;
+    location?: string;
+    attendees?: string[];
+    calendarId?: string;
+    workspaceId?: string;
+    meetingLink?: string;
+  }) {
+    return this.request('/calendar/events', {
+      method: 'POST',
+      body: JSON.stringify(event),
+    });
+  }
+
+  async updateCalendarEvent(eventId: string, updates: {
+    title?: string;
+    description?: string;
+    startTime?: string;
+    endTime?: string;
+    location?: string;
+    attendees?: string[];
+    meetingLink?: string;
+  }) {
+    return this.request(`/calendar/events/${eventId}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  }
+
+  async deleteCalendarEvent(eventId: string) {
+    return this.request(`/calendar/events/${eventId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getCalendarAuthUrl(provider: 'google' | 'outlook', redirectUri?: string) {
+    const query = new URLSearchParams();
+    if (redirectUri) query.set('redirectUri', redirectUri);
+    
+    return this.request(`/integrations/calendars/${provider}/auth-url?${query}`);
+  }
+
+  async syncCalendar(calendarId: string) {
+    return this.request(`/integrations/calendars/${calendarId}/sync`, {
+      method: 'POST',
+    });
+  }
+
+  async getCalendarSyncStatus(calendarId: string) {
+    return this.request(`/integrations/calendars/${calendarId}/sync-status`);
+  }
+
+  // Meeting integration
+  async scheduleMeetingFromWorkspace(workspaceId: string, meeting: {
+    title: string;
+    description?: string;
+    startTime: string;
+    duration: number; // in minutes
+    attendees?: string[];
+    generateMeetingLink?: boolean;
+  }) {
+    return this.request(`/workspaces/${workspaceId}/meetings`, {
+      method: 'POST',
+      body: JSON.stringify(meeting),
+    });
+  }
+
+  // General Integration API methods
+  async getIntegrationsStatus() {
+    return this.request('/integrations/status');
+  }
+
+  async connectIntegration(provider: string) {
+    return this.request(`/integrations/${provider}/connect`, {
+      method: 'POST',
+    });
+  }
+
+  async disconnectIntegration(provider: string) {
+    return this.request(`/integrations/${provider}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getIntegrationStatus(provider: string) {
+    return this.request(`/integrations/${provider}/status`);
+  }
+
+  // Webhook API methods
+  async getWebhooks() {
+    return this.request('/webhooks');
+  }
+
+  async createWebhook(webhook: {
+    url: string;
+    description?: string;
+    events: string[];
+    secret?: string;
+  }) {
+    return this.request('/webhooks', {
+      method: 'POST',
+      body: JSON.stringify(webhook),
+    });
+  }
+
+  async getWebhook(webhookId: string) {
+    return this.request(`/webhooks/${webhookId}`);
+  }
+
+  async updateWebhook(webhookId: string, webhook: {
+    url?: string;
+    description?: string;
+    events?: string[];
+    secret?: string;
+    active?: boolean;
+  }) {
+    return this.request(`/webhooks/${webhookId}`, {
+      method: 'PUT',
+      body: JSON.stringify(webhook),
+    });
+  }
+
+  async deleteWebhook(webhookId: string) {
+    return this.request(`/webhooks/${webhookId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async testWebhook(webhookId: string) {
+    return this.request(`/webhooks/${webhookId}/test`, {
+      method: 'POST',
+    });
+  }
+
+  async getWebhookLogs(webhookId: string, params?: { limit?: number; offset?: number }) {
+    const query = params ? '?' + new URLSearchParams(params as any).toString() : '';
+    return this.request(`/webhooks/${webhookId}/logs${query}`);
+  }
+
+  // Analytics API methods
+  async getAnalytics(params?: { timeRange?: string }) {
+    const query = params ? '?' + new URLSearchParams(params as any).toString() : '';
+    return this.request(`/admin/analytics${query}`);
+  }
+
+  async getSystemHealth() {
+    return this.request('/admin/system-health');
+  }
+
+  async getUsageStatistics(timeRange = '7d') {
+    return this.request(`/admin/usage-stats?timeRange=${timeRange}`);
+  }
+
+  async getPerformanceMetrics(timeRange = '24h') {
+    return this.request(`/admin/performance-metrics?timeRange=${timeRange}`);
+  }
+
+  async getErrorAnalytics(timeRange = '7d') {
+    return this.request(`/admin/error-analytics?timeRange=${timeRange}`);
+  }
+
+  async getActivityFeed(params?: { limit?: number; offset?: number }) {
+    const query = params ? '?' + new URLSearchParams(params as any).toString() : '';
+    return this.request(`/admin/activity-feed${query}`);
+  }
+
+  // Bot Management API methods
+  async getBots() {
+    return this.request('/bots');
+  }
+
+  async createBot(bot: {
+    name: string;
+    platform: 'slack' | 'discord';
+    description?: string;
+    token: string;
+    channels?: string[];
+    enabled?: boolean;
+  }) {
+    return this.request('/bots', {
+      method: 'POST',
+      body: JSON.stringify(bot),
+    });
+  }
+
+  async updateBot(botId: string, updates: {
+    name?: string;
+    description?: string;
+    token?: string;
+    channels?: string[];
+    enabled?: boolean;
+  }) {
+    return this.request(`/bots/${botId}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  }
+
+  async deleteBot(botId: string) {
+    return this.request(`/bots/${botId}`, { method: 'DELETE' });
+  }
+
+  async getBotCommands(botId?: string) {
+    const query = botId ? `?botId=${botId}` : '';
+    return this.request(`/bots/commands${query}`);
+  }
+
+  async createBotCommand(command: {
+    botId: string;
+    name: string;
+    description: string;
+    response: string;
+    triggers?: string[];
+    enabled?: boolean;
+  }) {
+    return this.request('/bots/commands', {
+      method: 'POST',
+      body: JSON.stringify(command),
+    });
+  }
+
+  async updateBotCommand(commandId: string, updates: {
+    name?: string;
+    description?: string;
+    response?: string;
+    triggers?: string[];
+    enabled?: boolean;
+  }) {
+    return this.request(`/bots/commands/${commandId}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  }
+
+  async deleteBotCommand(commandId: string) {
+    return this.request(`/bots/commands/${commandId}`, { method: 'DELETE' });
+  }
+
+  async getBotAnalytics(botId: string, timeRange = '7d') {
+    return this.request(`/bots/${botId}/analytics?timeRange=${timeRange}`);
+  }
+
+  async testBotConnection(botId: string) {
+    return this.request(`/bots/${botId}/test`, { method: 'POST' });
+  }
+
+  async getBotHistory(params?: { limit?: number; botId?: string }) {
+    const query = new URLSearchParams();
+    if (params?.limit) query.set('limit', params.limit.toString());
+    if (params?.botId) query.set('botId', params.botId);
+    
+    return this.request(`/bots/history?${query}`);
+  }
+
+  async testBotCommand(command: {
+    command: string;
+    platform?: string;
+    channel?: string;
+    botId?: string;
+  }) {
+    return this.request('/bots/test-command', {
+      method: 'POST',
+      body: JSON.stringify(command),
+    });
+  }
 }
 
 export const api = new ApiClient();

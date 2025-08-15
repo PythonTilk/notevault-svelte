@@ -1,110 +1,30 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { Bell, Check, X, Info, AlertTriangle, CheckCircle } from 'lucide-svelte';
-  import { api } from '$lib/api';
+  import { 
+    notifications, 
+    isLoading, 
+    error, 
+    unreadCount, 
+    notificationStore 
+  } from '$lib/stores/notifications';
 
-  interface Notification {
-    id: string;
-    title: string;
-    message: string;
-    type: 'info' | 'success' | 'warning' | 'error';
-    isRead: boolean;
-    createdAt: Date;
-    actionUrl?: string;
-  }
-
-  let notifications: Notification[] = [];
-  let isLoading = true;
   let filter: 'all' | 'unread' = 'all';
 
-  // Mock notifications for now - will be replaced with real API
-  const mockNotifications: Notification[] = [
-    {
-      id: '1',
-      title: 'Welcome to NoteVault!',
-      message: 'Your account has been successfully created. Start by creating your first workspace.',
-      type: 'success',
-      isRead: false,
-      createdAt: new Date(Date.now() - 3600000),
-      actionUrl: '/workspaces'
-    },
-    {
-      id: '2',
-      title: 'New workspace member',
-      message: 'John Doe has joined your "Team Project" workspace.',
-      type: 'info',
-      isRead: false,
-      createdAt: new Date(Date.now() - 7200000)
-    },
-    {
-      id: '3',
-      title: 'Note shared with you',
-      message: 'Alice shared a note "Meeting Notes" with you in the Research workspace.',
-      type: 'info',
-      isRead: true,
-      createdAt: new Date(Date.now() - 86400000),
-      actionUrl: '/workspaces/2'
-    },
-    {
-      id: '4',
-      title: 'System maintenance',
-      message: 'Scheduled maintenance will occur tonight from 2-4 AM EST. Your data will remain safe.',
-      type: 'warning',
-      isRead: true,
-      createdAt: new Date(Date.now() - 172800000)
-    }
-  ];
-
   onMount(async () => {
-    try {
-      // TODO: Replace with real API call
-      // const data = await api.getNotifications();
-      // notifications = data;
-      
-      // For now, use mock data
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      notifications = mockNotifications;
-    } catch (error) {
-      console.error('Failed to load notifications:', error);
-      notifications = mockNotifications;
-    } finally {
-      isLoading = false;
-    }
+    await notificationStore.load();
   });
 
-  async function markAsRead(notificationId: string) {
-    try {
-      // TODO: API call to mark as read
-      // await api.markNotificationAsRead(notificationId);
-      
-      notifications = notifications.map(n => 
-        n.id === notificationId ? { ...n, isRead: true } : n
-      );
-    } catch (error) {
-      console.error('Failed to mark notification as read:', error);
-    }
+  function markAsRead(notificationId: string) {
+    notificationStore.markAsRead(notificationId);
   }
 
-  async function markAllAsRead() {
-    try {
-      // TODO: API call to mark all as read
-      // await api.markAllNotificationsAsRead();
-      
-      notifications = notifications.map(n => ({ ...n, isRead: true }));
-    } catch (error) {
-      console.error('Failed to mark all notifications as read:', error);
-    }
+  function markAllAsRead() {
+    notificationStore.markAllAsRead();
   }
 
-  async function deleteNotification(notificationId: string) {
-    try {
-      // TODO: API call to delete notification
-      // await api.deleteNotification(notificationId);
-      
-      notifications = notifications.filter(n => n.id !== notificationId);
-    } catch (error) {
-      console.error('Failed to delete notification:', error);
-    }
+  function deleteNotification(notificationId: string) {
+    notificationStore.delete(notificationId);
   }
 
   function getIcon(type: string) {
@@ -142,10 +62,8 @@
   }
 
   $: filteredNotifications = filter === 'all' 
-    ? notifications 
-    : notifications.filter(n => !n.isRead);
-
-  $: unreadCount = notifications.filter(n => !n.isRead).length;
+    ? $notifications 
+    : $notifications.filter(n => !n.isRead);
 </script>
 
 <svelte:head>
@@ -161,12 +79,12 @@
         <div>
           <h1 class="text-3xl font-bold text-white">Notifications</h1>
           <p class="text-dark-400">
-            {unreadCount > 0 ? `${unreadCount} unread notification${unreadCount === 1 ? '' : 's'}` : 'All caught up!'}
+            {$unreadCount > 0 ? `${$unreadCount} unread notification${$unreadCount === 1 ? '' : 's'}` : 'All caught up!'}
           </p>
         </div>
       </div>
 
-      {#if unreadCount > 0}
+      {#if $unreadCount > 0}
         <button
           on:click={markAllAsRead}
           class="btn-secondary text-sm"
@@ -185,7 +103,7 @@
           : 'text-dark-300 hover:text-white hover:bg-dark-700'}"
         on:click={() => filter = 'all'}
       >
-        All ({notifications.length})
+        All ({$notifications.length})
       </button>
       <button
         class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {filter === 'unread' 
@@ -193,12 +111,12 @@
           : 'text-dark-300 hover:text-white hover:bg-dark-700'}"
         on:click={() => filter = 'unread'}
       >
-        Unread ({unreadCount})
+        Unread ({$unreadCount})
       </button>
     </div>
 
     <!-- Notifications List -->
-    {#if isLoading}
+    {#if $isLoading}
       <div class="flex items-center justify-center py-12">
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
       </div>
