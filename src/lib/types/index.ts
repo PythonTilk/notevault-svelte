@@ -39,9 +39,25 @@ export interface Note {
   size?: { width: number; height: number };
   color: string;
   tags: string[];
+  collectionId?: string;
   createdAt: Date;
   updatedAt: Date;
   isPublic: boolean;
+}
+
+export interface NoteCollection {
+  id: string;
+  name: string;
+  description?: string;
+  workspaceId: string;
+  authorId: string;
+  parentId?: string;
+  color: string;
+  icon?: string;
+  isExpanded?: boolean;
+  sortOrder: number;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface ChatMessage {
@@ -54,6 +70,7 @@ export interface ChatMessage {
   createdAt: Date;
   editedAt?: Date;
   reactions: Reaction[];
+  deliveryStatus?: 'sending' | 'sent' | 'delivered' | 'failed';
 }
 
 export interface Reaction {
@@ -108,6 +125,18 @@ export interface SystemStats {
   storageUsed: number;
   memoryUsage: number;
   cpuUsage: number;
+}
+
+export interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  type: 'info' | 'success' | 'warning' | 'error';
+  isRead: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  actionUrl?: string;
+  userId: string;
 }
 
 export interface NotificationSettings {

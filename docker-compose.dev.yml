@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  # Backend API Service (Development)
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: notevault-backend-dev
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - DB_PATH=/app/database/notevault.db
+      - JWT_SECRET=dev-jwt-secret-change-in-production
+      - CORS_ORIGIN=http://localhost:5173,http://localhost:3000,http://localhost:50063,http://localhost:56770
+      # Real-time collaboration
+      - ENABLE_WEBSOCKETS=true
+      - SOCKET_IO_CORS_ORIGIN=http://localhost:5173,http://localhost:3000,http://localhost:50063,http://localhost:56770
+      # Analytics and monitoring
+      - ENABLE_ANALYTICS=true
+      - REDIS_URL=redis://redis:6379
+    volumes:
+      - backend_data_dev:/app/database
+      - uploads_data_dev:/app/uploads
+      - ./server/src:/app/src  # Hot reload support
+    networks:
+      - notevault-network-dev
+    restart: unless-stopped
+    depends_on:
+      - redis
+
+  # Redis for real-time collaboration and caching
+  redis:
+    image: redis:7-alpine
+    container_name: notevault-redis-dev
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data_dev:/data
+    networks:
+      - notevault-network-dev
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
+
+volumes:
+  backend_data_dev:
+    driver: local
+  uploads_data_dev:
+    driver: local
+  redis_data_dev:
+    driver: local
+
+networks:
+  notevault-network-dev:
+    driver: bridge

@@ -1,0 +1,214 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches: [ main, develop, demo, backend ]
+  pull_request:
+    branches: [ main, develop, demo ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quick-tests:
+    runs-on: ubuntu-latest
+    name: Quick Tests & Build
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run unit tests
+      run: npm run test:unit
+      
+    - name: Check build
+      run: npm run build
+      
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-results
+        path: |
+          coverage/
+          test-results.xml
+        retention-days: 5
+
+  backend-health:
+    runs-on: ubuntu-latest
+    name: Backend Health Check
+    
+    env:
+      NODE_ENV: test
+      JWT_SECRET: test_jwt_secret_key_for_github_actions_minimum_32_characters_long
+      JWT_REFRESH_SECRET: test_refresh_secret_key_for_github_actions_minimum_32_characters_long
+      PORT: 3001
+      
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: server/package-lock.json
+        
+    - name: Install backend dependencies
+      run: |
+        cd server
+        npm ci
+        
+    - name: Initialize database
+      run: |
+        cd server
+        npm run init-db
+        
+    - name: Start server and test
+      run: |
+        cd server
+        timeout 30s npm start &
+        SERVER_PID=$!
+        
+        # Wait for server to start
+        for i in {1..10}; do
+          if curl -f http://localhost:3001/health 2>/dev/null; then
+            echo "✅ Server started successfully"
+            break
+          fi
+          echo "Waiting for server... ($i/10)"
+          sleep 3
+        done
+        
+        # Test health endpoint
+        curl -f http://localhost:3001/health || exit 1
+        
+        # Test API endpoint
+        curl -f http://localhost:3001/api/announcements || exit 1
+        
+        # Clean up
+        kill $SERVER_PID 2>/dev/null || true
+
+  code-quality:
+    runs-on: ubuntu-latest
+    name: Code Quality
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run linting
+      run: npm run lint
+      continue-on-error: true
+      
+    - name: Run type checking
+      run: npm run check
+      continue-on-error: true
+      
+    - name: Check for TODO comments
+      run: |
+        echo "Checking for TODO comments in code..."
+        TODO_COUNT=$(grep -r "TODO\|FIXME\|HACK" src/ --exclude-dir=node_modules | wc -l)
+        echo "Found $TODO_COUNT TODO/FIXME/HACK comments"
+        echo "TODO_COUNT=$TODO_COUNT" >> $GITHUB_OUTPUT
+        
+    - name: Security scan
+      run: |
+        # Check for potential security issues
+        echo "Running basic security checks..."
+        
+        # Check for console.log statements (should be removed in production)
+        CONSOLE_LOGS=$(grep -r "console\.log" src/ | wc -l)
+        echo "Found $CONSOLE_LOGS console.log statements"
+        
+        # Check for hardcoded secrets patterns
+        if grep -r "password\s*=\s*['\"][^'\"]*['\"]" src/ --exclude-dir=node_modules; then
+          echo "⚠️ Potential hardcoded passwords found"
+        fi
+        
+        echo "✅ Basic security scan completed"
+
+  dependency-check:
+    runs-on: ubuntu-latest
+    name: Dependency Security
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Check frontend dependencies
+      run: |
+        echo "Checking frontend dependencies..."
+        npm audit --audit-level=moderate || echo "Frontend audit completed with warnings"
+        
+    - name: Check backend dependencies
+      run: |
+        echo "Checking backend dependencies..."
+        cd server
+        npm ci
+        npm audit --audit-level=moderate || echo "Backend audit completed with warnings"
+        
+    - name: Check for outdated packages
+      run: |
+        echo "Checking for outdated packages..."
+        npm outdated || echo "Some packages may be outdated"
+        
+        cd server
+        npm outdated || echo "Some backend packages may be outdated"
+
+  notification:
+    runs-on: ubuntu-latest
+    name: Status Notification
+    needs: [quick-tests, backend-health, code-quality, dependency-check]
+    if: always()
+    
+    steps:
+    - name: Set status
+      run: |
+        if [[ "${{ needs.quick-tests.result }}" == "success" && "${{ needs.backend-health.result }}" == "success" ]]; then
+          echo "STATUS=✅ CI passed" >> $GITHUB_ENV
+        else
+          echo "STATUS=❌ CI failed" >> $GITHUB_ENV
+        fi
+        
+    - name: Create summary
+      run: |
+        echo "# CI Results for ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Status:** ${{ env.STATUS }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## Test Results" >> $GITHUB_STEP_SUMMARY
+        echo "- Unit Tests: ${{ needs.quick-tests.result == 'success' && '✅' || '❌' }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Backend Health: ${{ needs.backend-health.result == 'success' && '✅' || '❌' }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Code Quality: ${{ needs.code-quality.result == 'success' && '✅' || '⚠️' }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Dependencies: ${{ needs.dependency-check.result == 'success' && '✅' || '⚠️' }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "_Completed at: $(date)_" >> $GITHUB_STEP_SUMMARY

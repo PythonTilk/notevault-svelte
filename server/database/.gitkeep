@@ -1,0 +1,2 @@
+# This file ensures the database directory is tracked by git
+# The database directory is needed for SQLite database files

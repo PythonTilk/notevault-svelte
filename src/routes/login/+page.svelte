@@ -2,29 +2,34 @@
   import { goto } from '$app/navigation';
   import { authStore } from '$lib/stores/auth';
   import { Eye, EyeOff, Mail, Lock } from 'lucide-svelte';
+  import { toastStore } from '$lib/stores/toast';
+  import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
 
-  let email = '';
+  let identifier = '';
   let password = '';
   let showPassword = false;
   let isLoading = false;
   let error = '';
 
   async function handleLogin() {
-    if (!email || !password) {
-      error = 'Please fill in all fields';
+    if (!identifier || !password) {
+      toastStore.warning('Missing Information', 'Please fill in all fields');
       return;
     }
 
     isLoading = true;
-    error = '';
 
     try {
-      const result = await authStore.login(email, password);
+      const result = await authStore.login(identifier, password);
       if (result.success) {
+        toastStore.success('Welcome back!', 'Successfully logged in');
         goto('/');
+      } else {
+        toastStore.error('Login Failed', result.error || 'Invalid email or password');
       }
     } catch (err) {
-      error = 'Invalid email or password';
+      toastStore.error('Login Error', 'Unable to connect to server. Please try again.');
+      console.error('Login error:', err);
     } finally {
       isLoading = false;
     }
@@ -59,21 +64,21 @@
       {/if}
 
       <div class="space-y-4">
-        <!-- Email -->
+        <!-- Email or Username -->
         <div>
-          <label for="email" class="block text-sm font-medium text-dark-300 mb-2">
-            Email address
+          <label for="identifier" class="block text-sm font-medium text-dark-300 mb-2">
+            Email or Username
           </label>
           <div class="relative">
             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Mail class="h-5 w-5 text-dark-400" />
             </div>
             <input
-              id="email"
-              type="email"
-              bind:value={email}
+              id="identifier"
+              type="text"
+              bind:value={identifier}
               class="input pl-10"
-              placeholder="Enter your email"
+              placeholder="Enter your email or username"
               required
             />
           </div>
@@ -152,8 +157,9 @@
       <!-- Demo Credentials -->
       <div class="bg-blue-500/10 border border-blue-500 rounded-lg p-4">
         <p class="text-blue-400 text-sm font-medium mb-2">Demo Credentials:</p>
-        <p class="text-blue-300 text-sm">Email: demo@example.com</p>
-        <p class="text-blue-300 text-sm">Password: any password</p>
+        <p class="text-blue-300 text-sm">Username: demo | Password: demo123</p>
+        <p class="text-blue-300 text-sm">Username: admin | Password: admin123</p>
+        <p class="text-blue-300 text-sm text-xs mt-1 opacity-75">You can also use email addresses</p>
       </div>
 
       <!-- Sign up link -->

@@ -44,7 +44,7 @@
   }
 
   function handleReaction(event: CustomEvent<{ messageId: string; emoji: string }>) {
-    chatStore.addReaction(event.detail.messageId, event.detail.emoji, $currentUser?.id || '1');
+    chatStore.addReaction(event.detail.messageId, event.detail.emoji);
   }
 
   function handleReply(event: CustomEvent<{ message: any }>) {
@@ -53,6 +53,15 @@
     // Focus the input
     const input = document.querySelector('#message-input') as HTMLTextAreaElement;
     input?.focus();
+  }
+
+  async function handleRetry(event: CustomEvent<{ messageId: string }>) {
+    try {
+      await chatStore.retryMessage(event.detail.messageId);
+    } catch (error) {
+      console.error('Failed to retry message:', error);
+      // Could show a toast notification here
+    }
   }
 
   function insertEmoji(emoji: string) {
@@ -127,6 +136,7 @@
             currentUserId={$currentUser?.id || '1'}
             on:react={handleReaction}
             on:reply={handleReply}
+            on:retry={handleRetry}
           />
         {/each}
       {/if}
