@@ -1,0 +1,3 @@
+# This file ensures the logs/ directory is tracked by git
+# while ignoring all log files.
+# Application logs, error logs, and security logs will be stored here.

@@ -1,0 +1,3 @@
+# This file ensures the docker-data/ directory is tracked by git
+# while ignoring Docker volume data.
+# Docker persistent data will be mounted here.

@@ -1,0 +1,3 @@
+# This file ensures the ssl-certs/ directory is tracked by git
+# while ignoring SSL certificate files.
+# SSL certificates and keys will be stored here for HTTPS.
