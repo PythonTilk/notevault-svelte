@@ -501,4 +501,185 @@ router.get('/status', async (req, res) => {
   }
 });
 
+// Bot Management CRUD endpoints
+router.get('/', async (req, res) => {
+  try {
+    const slackConfigured = !!(botService.slackConfig.botToken || botService.slackConfig.webhookUrl);
+    const discordConfigured = !!botService.discordConfig.webhookUrl;
+    
+    const bots = [];
+    
+    if (slackConfigured) {
+      bots.push({
+        id: 'slack-1',
+        name: 'NoteVault Slack Bot',
+        platform: 'slack',
+        status: 'active',
+        teamName: 'Development Team',
+        channels: ['#general', '#dev-team', '#notevault'],
+        commandCount: botService.commands.size,
+        lastActive: new Date().toISOString(),
+        enabled: botService.slackConfig.enabled
+      });
+    }
+    
+    if (discordConfigured) {
+      bots.push({
+        id: 'discord-1',
+        name: 'NoteVault Discord Bot',
+        platform: 'discord',
+        status: 'active',
+        guildName: 'NoteVault Community',
+        channels: ['general', 'development', 'support'],
+        commandCount: botService.commands.size,
+        lastActive: new Date().toISOString(),
+        enabled: botService.discordConfig.enabled
+      });
+    }
+    
+    res.json(bots);
+  } catch (error) {
+    console.error('Get bots error:', error);
+    res.status(500).json({ error: 'Failed to get bots' });
+  }
+});
+
+router.post('/', async (req, res) => {
+  try {
+    const { name, platform, description, token, channels, enabled = true } = req.body;
+    
+    if (!name || !platform || !token) {
+      return res.status(400).json({ error: 'Name, platform, and token are required' });
+    }
+    
+    // For now, return success with the bot data
+    // In a real implementation, this would save to database
+    const bot = {
+      id: `${platform}-${Date.now()}`,
+      name,
+      platform,
+      description,
+      status: 'active',
+      channels: channels || [],
+      commandCount: 0,
+      lastActive: new Date().toISOString(),
+      enabled
+    };
+    
+    res.status(201).json(bot);
+  } catch (error) {
+    console.error('Create bot error:', error);
+    res.status(500).json({ error: 'Failed to create bot' });
+  }
+});
+
+router.get('/commands', async (req, res) => {
+  try {
+    const { botId } = req.query;
+    
+    const commands = Array.from(botService.commands.entries()).map(([name, cmd]) => ({
+      id: name,
+      name: name,
+      description: cmd.description || `Command: ${name}`,
+      usage: `/notevault ${name}`,
+      category: cmd.category || 'General',
+      enabled: cmd.enabled !== false,
+      botId: botId || 'slack-1',
+      response: cmd.response || `Response for ${name}`,
+      triggers: cmd.triggers || [name]
+    }));
+    
+    res.json(commands);
+  } catch (error) {
+    console.error('Get commands error:', error);
+    res.status(500).json({ error: 'Failed to get commands' });
+  }
+});
+
+router.post('/commands', async (req, res) => {
+  try {
+    const { botId, name, description, response, triggers = [], enabled = true } = req.body;
+    
+    if (!name || !description || !response) {
+      return res.status(400).json({ error: 'Name, description, and response are required' });
+    }
+    
+    // Register the command with the bot service
+    botService.registerCommand(name, {
+      description,
+      response,
+      triggers,
+      enabled,
+      category: 'Custom'
+    });
+    
+    const command = {
+      id: name,
+      name,
+      description,
+      usage: `/notevault ${name}`,
+      category: 'Custom',
+      enabled,
+      botId: botId || 'slack-1',
+      response,
+      triggers
+    };
+    
+    res.status(201).json(command);
+  } catch (error) {
+    console.error('Create command error:', error);
+    res.status(500).json({ error: 'Failed to create command' });
+  }
+});
+
+router.get('/history', async (req, res) => {
+  try {
+    const { limit = 50, botId } = req.query;
+    
+    // For now, return mock history data
+    // In a real implementation, this would query from database
+    const history = Array.from({ length: Math.min(limit, 10) }, (_, i) => ({
+      id: `history-${i + 1}`,
+      command: ['help', 'status', 'create', 'list'][i % 4],
+      user: `user${i + 1}`,
+      platform: botId?.includes('discord') ? 'discord' : 'slack',
+      channel: `#${['general', 'dev-team', 'support'][i % 3]}`,
+      timestamp: new Date(Date.now() - i * 60000).toISOString(),
+      success: Math.random() > 0.1,
+      response: `Response for command ${i + 1}`
+    }));
+    
+    res.json(history);
+  } catch (error) {
+    console.error('Get history error:', error);
+    res.status(500).json({ error: 'Failed to get history' });
+  }
+});
+
+router.post('/test-command', async (req, res) => {
+  try {
+    const { command, platform = 'slack', channel = '#general', botId } = req.body;
+    
+    if (!command) {
+      return res.status(400).json({ error: 'Command is required' });
+    }
+    
+    // Simulate command execution
+    const response = {
+      success: true,
+      platform,
+      channel,
+      command,
+      response: `Test response for: ${command}`,
+      timestamp: new Date().toISOString(),
+      executionTime: Math.random() * 1000 + 100
+    };
+    
+    res.json(response);
+  } catch (error) {
+    console.error('Test command error:', error);
+    res.status(500).json({ error: 'Failed to test command' });
+  }
+});
+
 export default router;

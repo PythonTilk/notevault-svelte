@@ -470,6 +470,179 @@
     
     return result;
   })();
+
+  // Batch download selected files
+  async function downloadSelectedFiles() {
+    if (selectedFiles.size === 0) return;
+    
+    try {
+      batchOperationError = null;
+      batchOperationProgress.clear();
+      
+      const fileIds = Array.from(selectedFiles);
+      
+      // Initialize progress for each file
+      fileIds.forEach(id => batchOperationProgress.set(id, 0));
+      batchOperationProgress = batchOperationProgress;
+      
+      // Download each file sequentially
+      for (const fileId of fileIds) {
+        const file = files.find(f => f.id === fileId);
+        if (!file) continue;
+        
+        try {
+          // Update progress
+          batchOperationProgress.set(fileId, 50);
+          batchOperationProgress = batchOperationProgress;
+          
+          // Create download link and trigger download
+          const downloadUrl = api.getFileDownloadUrl(fileId);
+          const a = document.createElement('a');
+          a.href = downloadUrl;
+          a.download = file.name;
+          a.style.display = 'none';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          
+          // Complete progress
+          batchOperationProgress.set(fileId, 100);
+          batchOperationProgress = batchOperationProgress;
+          
+          // Small delay between downloads to avoid browser blocking
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } catch (error) {
+          console.error(`Failed to download file ${file.name}:`, error);
+          batchOperationError = `Failed to download "${file.name}"`;
+          break;
+        }
+      }
+      
+      if (!batchOperationError) {
+        toastStore.success('Download Complete', `Downloaded ${fileIds.length} file(s)`);
+        selectedFiles.clear();
+        selectedFiles = selectedFiles;
+      }
+    } catch (error) {
+      console.error('Batch download failed:', error);
+      batchOperationError = 'Batch download failed';
+    } finally {
+      // Clear progress after 3 seconds
+      setTimeout(() => {
+        batchOperationProgress.clear();
+        batchOperationProgress = batchOperationProgress;
+      }, 3000);
+    }
+  }
+
+  // Share selected files
+  async function shareSelectedFiles() {
+    if (selectedFiles.size === 0) return;
+    
+    try {
+      const fileIds = Array.from(selectedFiles);
+      const shareUrls = fileIds.map(id => {
+        const file = files.find(f => f.id === id);
+        return `${window.location.origin}/files/shared/${id}`;
+      });
+      
+      // Copy all share URLs to clipboard
+      const shareText = fileIds.length === 1 
+        ? shareUrls[0]
+        : shareUrls.join('\n');
+      
+      await navigator.clipboard.writeText(shareText);
+      
+      const fileNames = fileIds.map(id => {
+        const file = files.find(f => f.id === id);
+        return file?.name || 'Unknown';
+      }).join(', ');
+      
+      toastStore.success(
+        'Share Links Copied', 
+        `Share links for ${fileIds.length} file(s) copied to clipboard`
+      );
+      
+      selectedFiles.clear();
+      selectedFiles = selectedFiles;
+    } catch (error) {
+      console.error('Failed to share files:', error);
+      toastStore.error('Share Failed', 'Unable to copy share links to clipboard');
+    }
+  }
+
+  // Delete selected files
+  async function deleteSelectedFiles() {
+    if (selectedFiles.size === 0) return;
+    
+    try {
+      batchOperationError = null;
+      batchOperationProgress.clear();
+      
+      const fileIds = Array.from(selectedFiles);
+      
+      // Initialize progress for each file
+      fileIds.forEach(id => batchOperationProgress.set(id, 0));
+      batchOperationProgress = batchOperationProgress;
+      
+      let successCount = 0;
+      let failedFiles: string[] = [];
+      
+      // Delete each file
+      for (const fileId of fileIds) {
+        const file = files.find(f => f.id === fileId);
+        if (!file) continue;
+        
+        try {
+          // Update progress
+          batchOperationProgress.set(fileId, 50);
+          batchOperationProgress = batchOperationProgress;
+          
+          // Delete file via API
+          await api.deleteFile(fileId);
+          
+          // Remove from local state
+          files = files.filter(f => f.id !== fileId);
+          selectedFiles.delete(fileId);
+          
+          // Complete progress
+          batchOperationProgress.set(fileId, 100);
+          batchOperationProgress = batchOperationProgress;
+          
+          successCount++;
+        } catch (error) {
+          console.error(`Failed to delete file ${file.name}:`, error);
+          failedFiles.push(file.name);
+          batchOperationProgress.set(fileId, -1); // Mark as failed
+          batchOperationProgress = batchOperationProgress;
+        }
+      }
+      
+      // Update selected files
+      selectedFiles = selectedFiles;
+      
+      // Show results
+      if (successCount > 0) {
+        toastStore.success('Delete Complete', `Deleted ${successCount} file(s)`);
+      }
+      
+      if (failedFiles.length > 0) {
+        batchOperationError = `Failed to delete: ${failedFiles.join(', ')}`;
+      }
+      
+      // Close modal
+      showBatchDeleteModal = false;
+    } catch (error) {
+      console.error('Batch delete failed:', error);
+      batchOperationError = 'Batch delete operation failed';
+    } finally {
+      // Clear progress after 3 seconds
+      setTimeout(() => {
+        batchOperationProgress.clear();
+        batchOperationProgress = batchOperationProgress;
+      }, 3000);
+    }
+  }
 </script>
 
 <svelte:head>

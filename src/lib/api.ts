@@ -223,11 +223,13 @@ class ApiClient {
   // File endpoints
   async getFiles(params?: {
     workspaceId?: string;
+    folderId?: string | null;
     limit?: number;
     offset?: number;
   }) {
     const query = new URLSearchParams();
     if (params?.workspaceId) query.set('workspaceId', params.workspaceId);
+    if (params?.folderId) query.set('folderId', params.folderId);
     if (params?.limit) query.set('limit', params.limit.toString());
     if (params?.offset) query.set('offset', params.offset.toString());
     
@@ -436,36 +438,48 @@ class ApiClient {
   }
 
   // Calendar endpoints
-  async getConnectedCalendars() {
-    return this.request('/integrations/calendars');
+  async getConnectedCalendars(provider?: 'google' | 'outlook') {
+    if (provider) {
+      return this.request(`/calendar/calendars/${provider}`);
+    }
+    // Get all connected calendars
+    const [googleCals, outlookCals] = await Promise.allSettled([
+      this.request('/calendar/calendars/google').catch(() => []),
+      this.request('/calendar/calendars/outlook').catch(() => [])
+    ]);
+    
+    const results = [];
+    if (googleCals.status === 'fulfilled') results.push(...googleCals.value);
+    if (outlookCals.status === 'fulfilled') results.push(...outlookCals.value);
+    return results;
   }
 
   async connectCalendar(provider: 'google' | 'outlook', authCode: string) {
-    return this.request('/integrations/calendars/connect', {
+    return this.request(`/calendar/callback/${provider}`, {
       method: 'POST',
-      body: JSON.stringify({ provider, authCode }),
+      body: JSON.stringify({ code: authCode }),
     });
   }
 
-  async disconnectCalendar(calendarId: string) {
-    return this.request(`/integrations/calendars/${calendarId}`, {
+  async disconnectCalendar(provider: 'google' | 'outlook') {
+    return this.request(`/calendar/disconnect/${provider}`, {
       method: 'DELETE',
     });
   }
 
   async getCalendarEvents(params?: {
-    calendarId?: string;
+    provider?: 'google' | 'outlook';
     start?: string;
     end?: string;
     limit?: number;
   }) {
     const query = new URLSearchParams();
-    if (params?.calendarId) query.set('calendarId', params.calendarId);
     if (params?.start) query.set('start', params.start);
     if (params?.end) query.set('end', params.end);
     if (params?.limit) query.set('limit', params.limit.toString());
     
-    return this.request(`/calendar/events?${query}`);
+    const provider = params?.provider || 'google';
+    return this.request(`/calendar/events/${provider}?${query}`);
   }
 
   async createCalendarEvent(event: {
@@ -475,11 +489,12 @@ class ApiClient {
     endTime: string;
     location?: string;
     attendees?: string[];
-    calendarId?: string;
+    provider?: 'google' | 'outlook';
     workspaceId?: string;
     meetingLink?: string;
   }) {
-    return this.request('/calendar/events', {
+    const provider = event.provider || 'google';
+    return this.request(`/calendar/events/${provider}`, {
       method: 'POST',
       body: JSON.stringify(event),
     });
@@ -506,21 +521,19 @@ class ApiClient {
     });
   }
 
-  async getCalendarAuthUrl(provider: 'google' | 'outlook', redirectUri?: string) {
-    const query = new URLSearchParams();
-    if (redirectUri) query.set('redirectUri', redirectUri);
-    
-    return this.request(`/integrations/calendars/${provider}/auth-url?${query}`);
+  async getCalendarAuthUrl(provider: 'google' | 'outlook') {
+    return this.request(`/calendar/auth/${provider}`);
   }
 
-  async syncCalendar(calendarId: string) {
-    return this.request(`/integrations/calendars/${calendarId}/sync`, {
+  async syncCalendar(workspaceId: string, provider: 'google' | 'outlook' = 'google') {
+    return this.request(`/calendar/sync/${workspaceId}`, {
       method: 'POST',
+      body: JSON.stringify({ provider }),
     });
   }
 
-  async getCalendarSyncStatus(calendarId: string) {
-    return this.request(`/integrations/calendars/${calendarId}/sync-status`);
+  async getCalendarStatus() {
+    return this.request('/calendar/status');
   }
 
   // Meeting integration
@@ -532,9 +545,9 @@ class ApiClient {
     attendees?: string[];
     generateMeetingLink?: boolean;
   }) {
-    return this.request(`/workspaces/${workspaceId}/meetings`, {
+    return this.request('/calendar/workspace-meeting', {
       method: 'POST',
-      body: JSON.stringify(meeting),
+      body: JSON.stringify({ workspaceId, ...meeting }),
     });
   }
 
@@ -550,7 +563,7 @@ class ApiClient {
   }
 
   async disconnectIntegration(provider: string) {
-    return this.request(`/integrations/${provider}`, {
+    return this.request(`/integrations/${provider}/disconnect`, {
       method: 'DELETE',
     });
   }
@@ -735,6 +748,55 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify(command),
     });
+  }
+
+  // Secrets Management endpoints
+  async rotateJWTSecret() {
+    return this.request('/secrets/rotate-jwt', {
+      method: 'POST',
+    });
+  }
+
+  async createAPIKey(data: {
+    name: string;
+    permissions: string[];
+  }) {
+    return this.request('/secrets/api-keys', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getAPIKeys() {
+    return this.request('/secrets/api-keys');
+  }
+
+  async deleteAPIKey(keyId: string) {
+    return this.request(`/secrets/api-keys/${keyId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async generateBackupCodes(count = 10) {
+    return this.request('/secrets/backup-codes', {
+      method: 'POST',
+      body: JSON.stringify({ count }),
+    });
+  }
+
+  async rotateEncryptionKey(confirmation: string) {
+    return this.request('/secrets/rotate-encryption-key', {
+      method: 'POST',
+      body: JSON.stringify({ confirmation }),
+    });
+  }
+
+  async getSecretsStatus() {
+    return this.request('/secrets/status');
+  }
+
+  async getSecretsHealth() {
+    return this.request('/secrets/health');
   }
 }
 

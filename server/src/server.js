@@ -16,6 +16,7 @@ import fileRoutes from './routes/files.js';
 import adminRoutes from './routes/admin.js';
 import auditRoutes from './routes/audit.js';
 import secretsRoutes from './routes/secrets.js';
+import integrationsRoutes from './routes/integrations.js';
 
 // Import database initialization
 import initDatabase from './utils/initDatabase.js';
@@ -141,6 +142,7 @@ app.use('/api/files', fileRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/secrets', secretsRoutes);
+app.use('/api/integrations', integrationsRoutes);
 
 // Swagger API Documentation
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, swaggerOptions));

@@ -17,14 +17,14 @@
   import { api } from '$lib/api';
 
   let integrations = {
-    github: { connected: false, username: '', repositories: 0 },
-    gitlab: { connected: false, username: '', repositories: 0 },
-    slack: { connected: false, teamName: '', channels: 0 },
-    discord: { connected: false, guildName: '', channels: 0 },
-    googleCalendar: { connected: false, email: '', calendars: 0 },
-    outlookCalendar: { connected: false, email: '', calendars: 0 },
-    googleDrive: { connected: false, email: '', usage: '0 GB' },
-    dropbox: { connected: false, email: '', usage: '0 GB' }
+    github: { connected: false, username: '', repositories: 0, status: 'Not configured' },
+    gitlab: { connected: false, username: '', repositories: 0, status: 'Not configured' },
+    slack: { connected: false, teamName: '', channels: 0, status: 'Not connected' },
+    discord: { connected: false, guildName: '', channels: 0, status: 'Not connected' },
+    googleCalendar: { connected: false, email: '', calendars: 0, status: 'Not connected' },
+    outlookCalendar: { connected: false, email: '', calendars: 0, status: 'Not connected' },
+    googleDrive: { connected: false, email: '', usage: '0 GB', status: 'Not configured' },
+    dropbox: { connected: false, email: '', usage: '0 GB', status: 'Not configured' }
   };
 
   let webhooks = [];
@@ -39,10 +39,13 @@
 
   async function loadIntegrations() {
     try {
-      integrations = await api.getIntegrationsStatus();
+      const realIntegrations = await api.getIntegrationsStatus();
+      integrations = realIntegrations;
     } catch (error) {
       console.error('Failed to load integrations:', error);
-      // Keep mock data as fallback for demonstration
+      // Keep default integrations structure with disconnected status
+      message = 'Failed to load integration status';
+      messageType = 'error';
     }
   }
 
@@ -58,18 +61,22 @@
 
   async function connectIntegration(provider: string) {
     try {
+      isLoading = true;
       const data = await api.connectIntegration(provider);
       if (data.authUrl) {
         window.open(data.authUrl, '_blank', 'width=600,height=600');
         // Poll for connection status
         pollConnectionStatus(provider);
       } else {
-        // For providers that don't need OAuth, mark as connected directly
-        integrations[provider].connected = true;
-        showMessage(`${provider} connected successfully`, 'success');
+        // Reload integrations to get real status
+        await loadIntegrations();
+        showMessage(data.message || `${provider} connected successfully`, 'success');
       }
     } catch (error) {
+      console.error('Connect integration error:', error);
       showMessage(`Failed to connect ${provider}`, 'error');
+    } finally {
+      isLoading = false;
     }
   }
 
@@ -79,11 +86,16 @@
     }
 
     try {
-      await api.disconnectIntegration(provider);
-      integrations[provider].connected = false;
-      showMessage(`${provider} disconnected successfully`, 'success');
+      isLoading = true;
+      const data = await api.disconnectIntegration(provider);
+      // Reload integrations to get real status
+      await loadIntegrations();
+      showMessage(data.message || `${provider} disconnected successfully`, 'success');
     } catch (error) {
+      console.error('Disconnect integration error:', error);
       showMessage(`Failed to disconnect ${provider}`, 'error');
+    } finally {
+      isLoading = false;
     }
   }
 

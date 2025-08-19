@@ -50,6 +50,7 @@
   // Mobile responsiveness
   let isMobile = false;
   let isTablet = false;
+  let showMobileDropdown = false;
   let editingCollection: NoteCollection | null = null;
   let parentCollection: NoteCollection | null = null;
   
@@ -344,6 +345,26 @@
     }
   }
 
+  // Mobile dropdown functions
+  function closeMobileDropdown() {
+    showMobileDropdown = false;
+  }
+
+  // Close mobile dropdown when clicking outside
+  function handleWindowClick(event: MouseEvent) {
+    if (showMobileDropdown && !event.target?.closest('.mobile-dropdown')) {
+      closeMobileDropdown();
+    }
+  }
+
+  $: if (typeof window !== 'undefined') {
+    if (showMobileDropdown) {
+      window.addEventListener('click', handleWindowClick);
+    } else {
+      window.removeEventListener('click', handleWindowClick);
+    }
+  }
+
   const noteColors = [
     '#fbbf24', '#ef4444', '#3b82f6', '#10b981', 
     '#8b5cf6', '#f59e0b', '#06b6d4', '#84cc16'
@@ -494,15 +515,68 @@
         </button>
       {:else}
         <!-- Mobile-only dropdown menu -->
-        <div class="relative">
+        <div class="relative mobile-dropdown">
           <button
             class="btn-ghost p-2"
-            on:click={() => {/* mobile menu toggle */}}
+            on:click={() => showMobileDropdown = !showMobileDropdown}
             aria-label="More options"
           >
             <Settings class="w-4 h-4" />
           </button>
-          <!-- Mobile dropdown would go here -->
+          
+          {#if showMobileDropdown}
+            <div class="absolute right-0 top-full mt-1 w-48 bg-dark-800 border border-dark-700 rounded-lg shadow-lg z-50">
+              <div class="py-1">
+                <!-- Share Workspace -->
+                <button
+                  class="w-full text-left px-3 py-2 text-sm text-white hover:bg-dark-700 flex items-center space-x-2"
+                  on:click={() => {
+                    closeMobileDropdown();
+                    // Add share functionality
+                  }}
+                >
+                  <Share class="w-4 h-4" />
+                  <span>Share Workspace</span>
+                </button>
+                
+                <!-- Schedule Meeting -->
+                <button
+                  class="w-full text-left px-3 py-2 text-sm text-white hover:bg-dark-700 flex items-center space-x-2"
+                  on:click={() => {
+                    closeMobileDropdown();
+                    showMeetingModal = true;
+                  }}
+                >
+                  <Calendar class="w-4 h-4" />
+                  <span>Schedule Meeting</span>
+                </button>
+                
+                <!-- Workspace Settings -->
+                <button
+                  class="w-full text-left px-3 py-2 text-sm text-white hover:bg-dark-700 flex items-center space-x-2"
+                  on:click={() => {
+                    closeMobileDropdown();
+                    // Add settings functionality
+                  }}
+                >
+                  <Settings class="w-4 h-4" />
+                  <span>Workspace Settings</span>
+                </button>
+                
+                <!-- Manage Members -->
+                <button
+                  class="w-full text-left px-3 py-2 text-sm text-white hover:bg-dark-700 flex items-center space-x-2"
+                  on:click={() => {
+                    closeMobileDropdown();
+                    showMemberModal = true;
+                  }}
+                >
+                  <Users class="w-4 h-4" />
+                  <span>Manage Members</span>
+                </button>
+              </div>
+            </div>
+          {/if}
         </div>
       {/if}
       
