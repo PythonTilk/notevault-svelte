@@ -640,11 +640,193 @@ class MonitoringService extends EventEmitter {
     };
     
     if (format === 'csv') {
-      // Implement CSV conversion
-      return 'CSV export not implemented';
+      return this.convertToCSV(data, timeRange);
     }
     
     return data;
+  }
+
+  /**
+   * Convert monitoring data to CSV format
+   * @param {Object} data - Monitoring data
+   * @param {string} timeRange - Time range for the export
+   * @returns {string} CSV formatted data
+   */
+  convertToCSV(data, timeRange) {
+    const csvSections = [];
+    const dateString = new Date().toISOString();
+    
+    // Header with metadata
+    csvSections.push(`# NoteVault Analytics Export`);
+    csvSections.push(`# Generated: ${dateString}`);
+    csvSections.push(`# Time Range: ${timeRange}`);
+    csvSections.push(`# Export Type: Complete System Analytics`);
+    csvSections.push('');
+
+    // System Status section
+    csvSections.push('## System Status');
+    csvSections.push('Metric,Value,Status');
+    Object.entries(data.systemStatus).forEach(([key, value]) => {
+      if (typeof value === 'object' && value !== null) {
+        csvSections.push(`${key},${JSON.stringify(value)},${value.status || 'N/A'}`);
+      } else {
+        csvSections.push(`${key},${value},N/A`);
+      }
+    });
+    csvSections.push('');
+
+    // Performance Metrics section
+    if (data.performance && Object.keys(data.performance).length > 0) {
+      csvSections.push('## Performance Metrics');
+      csvSections.push('Metric,Average,Min,Max,Count,Unit');
+      Object.entries(data.performance).forEach(([key, metrics]) => {
+        if (typeof metrics === 'object' && metrics.average !== undefined) {
+          csvSections.push(
+            `${key},${metrics.average || 0},${metrics.min || 0},${metrics.max || 0},${metrics.count || 0},${metrics.unit || 'ms'}`
+          );
+        } else {
+          csvSections.push(`${key},${metrics},0,0,1,N/A`);
+        }
+      });
+      csvSections.push('');
+    }
+
+    // Alerts section
+    if (data.alerts && data.alerts.length > 0) {
+      csvSections.push('## System Alerts');
+      csvSections.push('Timestamp,Type,Level,Message,Resolved,Resolved By,Resolved At');
+      data.alerts.forEach(alert => {
+        const timestamp = new Date(alert.timestamp).toISOString();
+        const resolvedAt = alert.resolvedAt ? new Date(alert.resolvedAt).toISOString() : '';
+        csvSections.push(
+          `"${timestamp}","${alert.type}","${alert.level}","${this.escapeCsvField(alert.message)}","${alert.resolved}","${alert.resolvedBy || ''}","${resolvedAt}"`
+        );
+      });
+      csvSections.push('');
+    }
+
+    // Metrics section (detailed time-series data)
+    if (data.metrics && data.metrics.length > 0) {
+      csvSections.push('## Detailed Metrics');
+      csvSections.push('Timestamp,Name,Value,Type,Tags');
+      data.metrics.forEach(metric => {
+        const timestamp = new Date(metric.timestamp).toISOString();
+        const tags = metric.tags ? JSON.stringify(metric.tags) : '';
+        csvSections.push(
+          `"${timestamp}","${metric.name}","${metric.value}","${metric.type}","${this.escapeCsvField(tags)}"`
+        );
+      });
+      csvSections.push('');
+    }
+
+    // Errors section
+    if (data.errors && data.errors.length > 0) {
+      csvSections.push('## System Errors');
+      csvSections.push('Timestamp,Level,Message,Stack,Source,User ID');
+      data.errors.forEach(error => {
+        const timestamp = new Date(error.timestamp).toISOString();
+        csvSections.push(
+          `"${timestamp}","${error.level}","${this.escapeCsvField(error.message)}","${this.escapeCsvField(error.stack || '')}","${error.source || ''}","${error.userId || ''}"`
+        );
+      });
+      csvSections.push('');
+    }
+
+    // API Usage Statistics (if available)
+    const apiStats = this.getAPIUsageStats();
+    if (apiStats && Object.keys(apiStats).length > 0) {
+      csvSections.push('## API Usage Statistics');
+      csvSections.push('Endpoint,Method,Count,Avg Response Time,Error Rate');
+      Object.entries(apiStats).forEach(([endpoint, stats]) => {
+        csvSections.push(
+          `"${endpoint}","${stats.method || 'ALL'}","${stats.count}","${stats.avgResponseTime}","${stats.errorRate}"`
+        );
+      });
+      csvSections.push('');
+    }
+
+    // Summary Statistics
+    csvSections.push('## Export Summary');
+    csvSections.push('Category,Count');
+    csvSections.push(`Total Alerts,${data.alerts?.length || 0}`);
+    csvSections.push(`Active Alerts,${data.alerts?.filter(a => !a.resolved).length || 0}`);
+    csvSections.push(`Total Metrics,${data.metrics?.length || 0}`);
+    csvSections.push(`Total Errors,${data.errors?.length || 0}`);
+    csvSections.push(`System Uptime,${this.getUptime()}`);
+
+    return csvSections.join('\n');
+  }
+
+  /**
+   * Escape special characters for CSV
+   * @param {string} field - Field to escape
+   * @returns {string} Escaped field
+   */
+  escapeCsvField(field) {
+    if (typeof field !== 'string') return field;
+    // Escape quotes and wrap in quotes if contains commas, quotes, or newlines
+    const needsEscaping = field.includes(',') || field.includes('"') || field.includes('\n') || field.includes('\r');
+    if (needsEscaping) {
+      return field.replace(/"/g, '""');
+    }
+    return field;
+  }
+
+  /**
+   * Get API usage statistics
+   * @returns {Object} API usage stats
+   */
+  getAPIUsageStats() {
+    const stats = {};
+    
+    // Aggregate metrics by endpoint
+    this.metrics.forEach(metric => {
+      if (metric.type === 'api_request') {
+        const endpoint = metric.tags?.endpoint || 'unknown';
+        const method = metric.tags?.method || 'GET';
+        const key = `${method} ${endpoint}`;
+        
+        if (!stats[key]) {
+          stats[key] = {
+            method,
+            endpoint,
+            count: 0,
+            totalResponseTime: 0,
+            errors: 0
+          };
+        }
+        
+        stats[key].count++;
+        stats[key].totalResponseTime += metric.value;
+        if (metric.tags?.status >= 400) {
+          stats[key].errors++;
+        }
+      }
+    });
+
+    // Calculate averages and error rates
+    Object.keys(stats).forEach(key => {
+      const stat = stats[key];
+      stat.avgResponseTime = (stat.totalResponseTime / stat.count).toFixed(2);
+      stat.errorRate = ((stat.errors / stat.count) * 100).toFixed(2) + '%';
+      delete stat.totalResponseTime; // Remove internal calculation field
+    });
+
+    return stats;
+  }
+
+  /**
+   * Get system uptime in human readable format
+   * @returns {string} Uptime string
+   */
+  getUptime() {
+    const uptime = process.uptime();
+    const days = Math.floor(uptime / 86400);
+    const hours = Math.floor((uptime % 86400) / 3600);
+    const minutes = Math.floor((uptime % 3600) / 60);
+    const seconds = Math.floor(uptime % 60);
+    
+    return `${days}d ${hours}h ${minutes}m ${seconds}s`;
   }
 }
 

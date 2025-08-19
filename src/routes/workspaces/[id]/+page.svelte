@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { fade } from 'svelte/transition';
   import { page } from '$app/stores';
+  import { goto } from '$app/navigation';
   import { Plus, Save, Palette, Type, Code, Settings, Users, Share, Tag, Folder, Calendar } from 'lucide-svelte';
   import { workspaceNotes, workspaceStore, currentWorkspace } from '$lib/stores/workspaces';
   import DOMPurify from 'dompurify';
@@ -14,6 +15,7 @@
   import NoteToolbar from '$lib/components/NoteToolbar.svelte';
   import CollectionTree from '$lib/components/CollectionTree.svelte';
   import CollectionModal from '$lib/components/CollectionModal.svelte';
+  import AIEnhancedEditor from '$lib/components/AIEnhancedEditor.svelte';
   import type { Note, WorkspaceMember, NoteCollection } from '$lib/types';
   import { 
     initializeCollaboration, 
@@ -66,6 +68,12 @@
   let newNoteColor = '#fbbf24';
   let newNoteTags: string[] = [];
   let newNoteCollectionId: string | undefined = undefined;
+  
+  // Note editing state
+  let editingNote: Note | null = null;
+  let editingContent = '';
+  let showEditModal = false;
+  let aiEditorEnabled = true;
 
   // Canvas state
   let canvasOffset = { x: 0, y: 0 };
@@ -251,6 +259,44 @@
   function handleNoteClick(event: CustomEvent<{ note: Note }>) {
     selectedNote = event.detail.note;
     showNoteModal = true;
+  }
+  
+  function handleEditNote(note: Note) {
+    editingNote = note;
+    editingContent = note.content;
+    showEditModal = true;
+  }
+  
+  async function handleSaveEditedNote() {
+    if (!editingNote) return;
+    
+    await workspaceStore.updateNote(editingNote.id, {
+      content: editingContent
+    });
+    
+    showEditModal = false;
+    editingNote = null;
+    editingContent = '';
+  }
+  
+  function handleAITagsGenerated(event: CustomEvent<{ tags: string[] }>) {
+    if (editingNote) {
+      // Update note tags with AI suggestions
+      const currentTags = editingNote.tags || [];
+      const newTags = [...new Set([...currentTags, ...event.detail.tags])];
+      workspaceStore.updateNote(editingNote.id, { tags: newTags });
+    } else {
+      // For new notes
+      newNoteTags = [...new Set([...newNoteTags, ...event.detail.tags])];
+    }
+  }
+  
+  function handleAIContentInput(event: CustomEvent<{ value: string }>) {
+    if (editingNote) {
+      editingContent = event.detail.value;
+    } else {
+      newNoteContent = event.detail.value;
+    }
   }
 
   function handleCanvasDrop(event: DragEvent) {
@@ -819,18 +865,55 @@
               <option value="code">Code Snippet</option>
             </select>
           </div>
+          
+          {#if newNoteType === 'text' || newNoteType === 'rich'}
+            <div class="flex items-center space-x-3">
+              <label class="flex items-center text-sm text-dark-300">
+                <input
+                  type="checkbox"
+                  bind:checked={aiEditorEnabled}
+                  class="mr-2"
+                />
+                <span class="flex items-center">
+                  <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                  </svg>
+                  Enable AI Writing Assistant
+                </span>
+              </label>
+              <div class="text-xs text-dark-500">
+                Get AI-powered suggestions, smart tags, and content analysis
+              </div>
+            </div>
+          {/if}
 
           <div>
             <label for="content" class="block text-sm font-medium text-dark-300 mb-2">
               Content
             </label>
-            <textarea
-              id="content"
-              bind:value={newNoteContent}
-              class="input resize-none"
-              rows="6"
-              placeholder="Enter note content"
-            ></textarea>
+            {#if aiEditorEnabled && newNoteType === 'text' || newNoteType === 'rich'}
+              <div class="border border-dark-700 rounded-lg overflow-hidden">
+                <AIEnhancedEditor
+                  bind:value={newNoteContent}
+                  title={newNoteTitle}
+                  workspaceId={workspaceId}
+                  placeholder="Start writing your note... AI suggestions will appear as you type."
+                  enableAISuggestions={true}
+                  enableSmartTags={true}
+                  enableContentAnalysis={true}
+                  on:input={handleAIContentInput}
+                  on:tags-generated={handleAITagsGenerated}
+                />
+              </div>
+            {:else}
+              <textarea
+                id="content"
+                bind:value={newNoteContent}
+                class="input resize-none"
+                rows="6"
+                placeholder="Enter note content"
+              ></textarea>
+            {/if}
           </div>
 
           <div>
@@ -918,6 +1001,27 @@
       </div>
       
       <div class="p-6 overflow-y-auto">
+        <div class="mb-4 flex justify-end space-x-2">
+          <button
+            class="btn-secondary text-sm"
+            on:click={() => handleEditNote(selectedNote)}
+          >
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+            </svg>
+            Quick Edit
+          </button>
+          <a
+            href="/notes/{selectedNote.id}/edit"
+            class="btn-primary text-sm inline-flex items-center"
+          >
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+            </svg>
+            AI Editor
+          </a>
+        </div>
+        
         {#if selectedNote.type === 'rich'}
           <div class="prose prose-invert max-w-none">
             {@html sanitizeHtml(selectedNote.content)}
@@ -969,4 +1073,120 @@
       // Could redirect to calendar or show notification
     }}
   />
+{/if}
+
+<!-- Note Edit Modal with AI-Enhanced Editor -->
+{#if showEditModal && editingNote}
+  <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" transition:fade>
+    <div class="bg-dark-900 rounded-lg border border-dark-800 w-full max-w-4xl max-h-[90vh] overflow-hidden">
+      <div class="p-6 border-b border-dark-800">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xl font-semibold text-white flex items-center">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+            </svg>
+            Edit Note: {editingNote.title}
+          </h2>
+          <button
+            class="text-dark-400 hover:text-white"
+            on:click={() => showEditModal = false}
+            aria-label="Close editor"
+            title="Close"
+          >
+            ×
+          </button>
+        </div>
+        <div class="mt-2 flex items-center text-sm text-dark-400">
+          <span class="mr-4">Type: {editingNote.type}</span>
+          <span class="mr-4">Last edited: {new Intl.DateTimeFormat('en-US', { 
+            dateStyle: 'short', 
+            timeStyle: 'short' 
+          }).format(new Date(editingNote.updatedAt))}</span>
+          <div class="flex items-center space-x-2">
+            <label class="flex items-center">
+              <input
+                type="checkbox"
+                bind:checked={aiEditorEnabled}
+                class="mr-1"
+              />
+              <span class="text-xs">AI Assistance</span>
+            </label>
+          </div>
+        </div>
+      </div>
+      
+      <div class="p-6 overflow-y-auto flex-1">
+        {#if aiEditorEnabled && (editingNote.type === 'text' || editingNote.type === 'rich')}
+          <AIEnhancedEditor
+            bind:value={editingContent}
+            title={editingNote.title}
+            noteId={editingNote.id}
+            workspaceId={workspaceId}
+            placeholder="Edit your note content... AI suggestions will help improve your writing."
+            enableAISuggestions={true}
+            enableSmartTags={true}
+            enableContentAnalysis={true}
+            on:input={handleAIContentInput}
+            on:tags-generated={handleAITagsGenerated}
+            on:suggestion-applied={(event) => {
+              console.log('AI suggestion applied:', event.detail.suggestion);
+            }}
+            on:template-applied={(event) => {
+              console.log('Template applied:', event.detail.template);
+            }}
+            on:analysis-completed={(event) => {
+              console.log('Content analysis completed:', event.detail.analysis);
+            }}
+          />
+        {:else}
+          <div>
+            <label class="block text-sm font-medium text-dark-300 mb-2">
+              Content
+            </label>
+            {#if editingNote.type === 'code'}
+              <textarea
+                bind:value={editingContent}
+                class="w-full h-96 p-4 bg-dark-800 border border-dark-700 rounded-lg text-green-400 font-mono text-sm resize-none"
+                placeholder="Edit your code..."
+              ></textarea>
+            {:else}
+              <textarea
+                bind:value={editingContent}
+                class="w-full h-96 p-4 bg-dark-800 border border-dark-700 rounded-lg text-white resize-none"
+                placeholder="Edit your note content..."
+              ></textarea>
+            {/if}
+          </div>
+        {/if}
+      </div>
+      
+      <div class="p-6 border-t border-dark-800">
+        <div class="flex items-center justify-between">
+          <div class="text-sm text-dark-400">
+            <span>Tags: </span>
+            {#each editingNote.tags || [] as tag}
+              <span class="inline-block px-2 py-1 bg-dark-800 rounded-full text-xs mr-1 mb-1">#{tag}</span>
+            {/each}
+          </div>
+          
+          <div class="flex items-center space-x-3">
+            <button
+              type="button"
+              class="btn-secondary"
+              on:click={() => showEditModal = false}
+            >
+              Cancel
+            </button>
+            <button 
+              class="btn-primary"
+              on:click={handleSaveEditedNote}
+            >
+              <Save class="w-4 h-4 mr-2" />
+              Save Changes
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 {/if}

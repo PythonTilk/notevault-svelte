@@ -24,7 +24,7 @@
   let message = '';
   let messageType: 'success' | 'error' = 'success';
 
-  onMount(() => {
+  onMount(async () => {
     const unsubscribe = currentUser.subscribe(user => {
       if (user) {
         displayName = user.displayName;
@@ -33,8 +33,35 @@
       }
     });
 
+    // Load all settings from backend
+    await loadSettings();
+
     return unsubscribe;
   });
+
+  async function loadSettings() {
+    isLoading = true;
+    try {
+      // Load user profile (including preferences and notification settings)
+      const userResponse = await api.getCurrentUser();
+      if (userResponse) {
+        // Load notification settings
+        emailNotifications = userResponse.emailNotifications ?? true;
+        pushNotifications = userResponse.pushNotifications ?? true; 
+        workspaceInvites = userResponse.workspaceInvites ?? true;
+        chatMentions = userResponse.chatMentions ?? true;
+        
+        // Load preferences
+        theme = userResponse.theme || 'dark';
+        language = userResponse.language || 'en';
+      }
+    } catch (error) {
+      console.error('Failed to load settings:', error);
+      showMessage('Failed to load settings', 'error');
+    } finally {
+      isLoading = false;
+    }
+  }
 
   async function updateProfile() {
     if (!displayName.trim()) {
@@ -98,19 +125,26 @@
   }
 
   async function saveNotificationSettings() {
+    if (isSaving) return;
+    
     isSaving = true;
     message = '';
 
     try {
-      await api.updateNotificationSettings({
+      const result = await api.updateNotificationSettings({
         emailNotifications,
         pushNotifications,
         workspaceInvites,
         chatMentions
       });
       
-      showMessage('Notification settings saved', 'success');
+      if (result?.success) {
+        showMessage('Notification settings saved successfully', 'success');
+      } else {
+        showMessage(result?.message || 'Notification settings saved', 'success');
+      }
     } catch (error: any) {
+      console.error('Failed to save notification settings:', error);
       showMessage(error.message || 'Failed to save notification settings', 'error');
     } finally {
       isSaving = false;
@@ -118,14 +152,26 @@
   }
 
   async function savePreferences() {
+    if (isSaving) return;
+    
     isSaving = true;
     message = '';
 
     try {
-      await api.updatePreferences({ theme, language });
+      const result = await api.updatePreferences({ theme, language });
       
-      showMessage('Preferences saved', 'success');
+      if (result?.success) {
+        showMessage('Preferences saved successfully', 'success');
+        
+        // Apply theme change immediately if needed
+        if (theme !== 'auto') {
+          document.documentElement.setAttribute('data-theme', theme);
+        }
+      } else {
+        showMessage(result?.message || 'Preferences saved', 'success');
+      }
     } catch (error: any) {
+      console.error('Failed to save preferences:', error);
       showMessage(error.message || 'Failed to save preferences', 'error');
     } finally {
       isSaving = false;

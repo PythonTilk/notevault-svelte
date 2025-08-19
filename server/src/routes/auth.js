@@ -497,6 +497,39 @@ router.delete('/delete-account', authenticateToken, asyncHandler(async (req, res
   res.json({ success: true, message: 'Account deleted successfully' });
 }));
 
+// Get current user profile with all settings
+router.get('/me', authenticateToken, asyncHandler(async (req, res) => {
+  const user = await dbWrapper.get(`
+    SELECT 
+      id, username, email, display_name, avatar, role, 
+      email_notifications, push_notifications, workspace_invites, chat_mentions,
+      theme, language, created_at, last_active
+    FROM users 
+    WHERE id = ?
+  `, [req.user.id]);
+
+  if (!user) {
+    throw new NotFoundError('User not found');
+  }
+
+  res.json({
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    displayName: user.display_name,
+    avatar: user.avatar,
+    role: user.role,
+    emailNotifications: !!user.email_notifications,
+    pushNotifications: !!user.push_notifications,
+    workspaceInvites: !!user.workspace_invites,
+    chatMentions: !!user.chat_mentions,
+    theme: user.theme || 'dark',
+    language: user.language || 'en',
+    createdAt: user.created_at,
+    lastActive: user.last_active
+  });
+}));
+
 // Test endpoint to debug auth middleware
 router.get('/test-auth', authenticateToken, asyncHandler(async (req, res) => {
   res.json({ 

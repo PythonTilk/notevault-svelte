@@ -4,6 +4,9 @@
 	"/admin/analytics": [],
 	"/admin/announcements": [],
 	"/admin/audit-logs": [],
+	"/admin/dlp": [],
+	"/admin/secrets": [],
+	"/admin/settings": [],
 	"/admin/users": [],
 	"/admin/workspaces": [],
 	"/bots": [],
@@ -17,6 +20,8 @@
 	"/search": [],
 	"/settings": [],
 	"/settings/integrations": [],
+	"/settings/integrations/webhooks": [],
 	"/settings/integrations/webhooks/new": [],
+	"/share": [],
 	"/workspaces/[id]": []
 }

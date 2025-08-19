@@ -22,7 +22,12 @@ export const nodes = [
 	() => import('./nodes/18'),
 	() => import('./nodes/19'),
 	() => import('./nodes/20'),
-	() => import('./nodes/21')
+	() => import('./nodes/21'),
+	() => import('./nodes/22'),
+	() => import('./nodes/23'),
+	() => import('./nodes/24'),
+	() => import('./nodes/25'),
+	() => import('./nodes/26')
 ];
 
 export const server_loads = [];
@@ -33,21 +38,26 @@ export const dictionary = {
 		"/admin/analytics": [4],
 		"/admin/announcements": [5],
 		"/admin/audit-logs": [6],
-		"/admin/users": [7],
-		"/admin/workspaces": [8],
-		"/bots": [9],
-		"/calendar": [10],
-		"/calendar/auth-callback": [11],
-		"/chat": [12],
-		"/files": [13],
-		"/login": [14],
-		"/notifications": [15],
-		"/register": [16],
-		"/search": [17],
-		"/settings": [18],
-		"/settings/integrations": [19],
-		"/settings/integrations/webhooks/new": [20],
-		"/workspaces/[id]": [21]
+		"/admin/dlp": [7],
+		"/admin/secrets": [8],
+		"/admin/settings": [9],
+		"/admin/users": [10],
+		"/admin/workspaces": [11],
+		"/bots": [12],
+		"/calendar": [13],
+		"/calendar/auth-callback": [14],
+		"/chat": [15],
+		"/files": [16],
+		"/login": [17],
+		"/notifications": [18],
+		"/register": [19],
+		"/search": [20],
+		"/settings": [21],
+		"/settings/integrations": [22],
+		"/settings/integrations/webhooks": [23],
+		"/settings/integrations/webhooks/new": [24],
+		"/share": [25],
+		"/workspaces/[id]": [26]
 	};
 
 export const hooks = {

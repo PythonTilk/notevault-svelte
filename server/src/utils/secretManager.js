@@ -415,6 +415,252 @@ class SecretManager {
   }
 
   /**
+   * Rotate encryption key - WARNING: This operation re-encrypts all stored secrets
+   */
+  async rotateEncryptionKey(userId = null) {
+    try {
+      // Log the start of key rotation
+      await auditLogger.logSecurityEvent(SECURITY_EVENTS.SECURITY_CONFIG_CHANGE, {
+        action: 'encryption_key_rotation_start',
+        userId,
+        timestamp: new Date().toISOString()
+      });
+
+      // Step 1: Generate new encryption key
+      const newEncryptionKey = crypto.randomBytes(32);
+      const oldEncryptionKey = this.getEncryptionKey();
+
+      // Step 2: Get all active secrets that need re-encryption
+      const secrets = await this.dbWrapper.query(`
+        SELECT id, name, encrypted_value, metadata, created_at
+        FROM secrets 
+        WHERE active = true
+      `);
+
+      if (secrets.length === 0) {
+        await auditLogger.logSecurityEvent(SECURITY_EVENTS.SECURITY_CONFIG_CHANGE, {
+          action: 'encryption_key_rotation_skipped',
+          reason: 'no_secrets_to_rotate',
+          userId
+        });
+        return {
+          success: true,
+          message: 'No secrets to rotate',
+          rotatedCount: 0
+        };
+      }
+
+      // Step 3: Create backup of current secrets table
+      const backupTimestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      await this.dbWrapper.run(`
+        CREATE TABLE secrets_backup_${backupTimestamp.substring(0, 19)} AS 
+        SELECT * FROM secrets WHERE active = true
+      `);
+
+      // Step 4: Begin transaction for re-encryption
+      await this.dbWrapper.run('BEGIN TRANSACTION');
+
+      let rotatedCount = 0;
+      const failedSecrets = [];
+
+      try {
+        // Step 5: Re-encrypt each secret with new key
+        for (const secret of secrets) {
+          try {
+            // Decrypt with old key
+            const decryptedValue = this.decrypt(secret.encrypted_value, oldEncryptionKey);
+            
+            // Encrypt with new key
+            const newEncryptedValue = this.encrypt(decryptedValue, newEncryptionKey);
+            
+            // Update the database record
+            await this.dbWrapper.run(`
+              UPDATE secrets 
+              SET encrypted_value = ?, updated_at = ?
+              WHERE id = ?
+            `, [newEncryptedValue, new Date().toISOString(), secret.id]);
+
+            rotatedCount++;
+
+          } catch (error) {
+            console.error(`Failed to rotate secret ${secret.name}:`, error);
+            failedSecrets.push({
+              id: secret.id,
+              name: secret.name,
+              error: error.message
+            });
+          }
+        }
+
+        // Step 6: If any secrets failed, rollback
+        if (failedSecrets.length > 0) {
+          await this.dbWrapper.run('ROLLBACK');
+          
+          await auditLogger.logSecurityEvent(SECURITY_EVENTS.SECURITY_CONFIG_CHANGE, {
+            action: 'encryption_key_rotation_failed',
+            reason: 'secret_re_encryption_failed',
+            failedSecrets: failedSecrets.length,
+            userId,
+            errors: failedSecrets
+          });
+
+          throw new Error(`Failed to rotate ${failedSecrets.length} secrets. Operation rolled back.`);
+        }
+
+        // Step 7: Generate and store new encryption key
+        const newKeyBase64 = newEncryptionKey.toString('base64');
+        
+        // Store the new key metadata
+        await this.dbWrapper.run(`
+          INSERT INTO encryption_keys (
+            id, key_version, created_at, active, rotated_by, secrets_count
+          ) VALUES (?, ?, ?, ?, ?, ?)
+        `, [
+          crypto.randomUUID(),
+          Date.now(), // Use timestamp as version
+          new Date().toISOString(),
+          true,
+          userId,
+          rotatedCount
+        ]);
+
+        // Deactivate old key version records (if any exist)
+        await this.dbWrapper.run(`
+          UPDATE encryption_keys 
+          SET active = false, deactivated_at = ?
+          WHERE active = true AND key_version < ?
+        `, [new Date().toISOString(), Date.now()]);
+
+        // Step 8: Update environment file with new key
+        await this.updateEnvironmentSecret('ENCRYPTION_KEY', newKeyBase64);
+
+        // Step 9: Commit transaction
+        await this.dbWrapper.run('COMMIT');
+
+        // Step 10: Verify rotation success by attempting to decrypt a test secret
+        if (secrets.length > 0) {
+          try {
+            const testSecret = await this.getSecret(secrets[0].name);
+            if (!testSecret) {
+              throw new Error('Verification failed: Cannot decrypt test secret with new key');
+            }
+          } catch (verificationError) {
+            console.error('Key rotation verification failed:', verificationError);
+            throw new Error('Key rotation verification failed');
+          }
+        }
+
+        // Step 11: Log successful completion
+        await auditLogger.logSecurityEvent(SECURITY_EVENTS.SECURITY_CONFIG_CHANGE, {
+          action: 'encryption_key_rotation_completed',
+          rotatedSecrets: rotatedCount,
+          keyVersion: Date.now(),
+          userId,
+          duration: Date.now() - new Date().getTime()
+        });
+
+        return {
+          success: true,
+          message: `Successfully rotated encryption key and re-encrypted ${rotatedCount} secrets`,
+          rotatedCount,
+          keyVersion: Date.now(),
+          backupTable: `secrets_backup_${backupTimestamp.substring(0, 19)}`
+        };
+
+      } catch (error) {
+        // Rollback transaction on any error
+        await this.dbWrapper.run('ROLLBACK');
+        throw error;
+      }
+
+    } catch (error) {
+      console.error('Encryption key rotation failed:', error);
+      
+      // Log the failure
+      await auditLogger.logSecurityEvent(SECURITY_EVENTS.SECURITY_CONFIG_CHANGE, {
+        action: 'encryption_key_rotation_failed',
+        error: error.message,
+        userId
+      });
+
+      throw new Error(`Encryption key rotation failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get encryption key rotation history
+   */
+  async getKeyRotationHistory() {
+    try {
+      const history = await this.dbWrapper.query(`
+        SELECT 
+          id,
+          key_version,
+          created_at,
+          active,
+          deactivated_at,
+          rotated_by,
+          secrets_count
+        FROM encryption_keys 
+        ORDER BY created_at DESC
+        LIMIT 50
+      `);
+
+      return history;
+    } catch (error) {
+      console.error('Failed to get key rotation history:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Validate encryption system integrity
+   */
+  async validateEncryption() {
+    try {
+      // Get a sample of secrets to test
+      const testSecrets = await this.dbWrapper.query(`
+        SELECT name, encrypted_value 
+        FROM secrets 
+        WHERE active = true 
+        LIMIT 5
+      `);
+
+      const results = {
+        tested: testSecrets.length,
+        successful: 0,
+        failed: 0,
+        errors: []
+      };
+
+      for (const secret of testSecrets) {
+        try {
+          const decrypted = await this.getSecret(secret.name);
+          if (decrypted) {
+            results.successful++;
+          } else {
+            results.failed++;
+            results.errors.push(`Failed to decrypt secret: ${secret.name}`);
+          }
+        } catch (error) {
+          results.failed++;
+          results.errors.push(`Error decrypting ${secret.name}: ${error.message}`);
+        }
+      }
+
+      return {
+        success: results.failed === 0,
+        results
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
    * Initialize database tables for secret management
    */
   async initializeSecretTables() {

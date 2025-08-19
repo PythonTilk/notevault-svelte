@@ -1,0 +1,160 @@
+{
+  "name": "NoteVault",
+  "short_name": "NoteVault",
+  "description": "Secure collaborative note-taking and workspace management",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f0f23",
+  "theme_color": "#6366f1",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "en-US",
+  "dir": "ltr",
+  "categories": ["productivity", "business", "education"],
+  "icons": [
+    {
+      "src": "/icons/icon-72x72.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-96x96.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-128x128.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-144x144.png",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-152x152.png",
+      "sizes": "152x152",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-384x384.png",
+      "sizes": "384x384",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "New Note",
+      "short_name": "New Note",
+      "description": "Create a new note",
+      "url": "/notes/new",
+      "icons": [
+        {
+          "src": "/icons/shortcut-new-note.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Workspaces",
+      "short_name": "Workspaces",
+      "description": "View all workspaces",
+      "url": "/workspaces",
+      "icons": [
+        {
+          "src": "/icons/shortcut-workspaces.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Files",
+      "short_name": "Files",
+      "description": "Manage files",
+      "url": "/files",
+      "icons": [
+        {
+          "src": "/icons/shortcut-files.png",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/desktop-home.png",
+      "sizes": "1920x1080",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Home screen showing workspaces and notes"
+    },
+    {
+      "src": "/screenshots/mobile-editor.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Note editor on mobile device"
+    }
+  ],
+  "features": [
+    "Cross Platform",
+    "Background Sync",
+    "Push Notifications",
+    "Share Target",
+    "File Handling"
+  ],
+  "edge_side_panel": {
+    "preferred_width": 400
+  },
+  "protocol_handlers": [
+    {
+      "protocol": "web+notevault",
+      "url": "/share?url=%s"
+    }
+  ],
+  "file_handlers": [
+    {
+      "action": "/handle-file",
+      "accept": {
+        "text/plain": [".txt", ".md"],
+        "text/markdown": [".md", ".markdown"],
+        "application/json": [".json"]
+      }
+    }
+  ],
+  "share_target": {
+    "action": "/share",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [
+        {
+          "name": "files",
+          "accept": ["text/*", "image/*", "application/pdf"]
+        }
+      ]
+    }
+  }
+}

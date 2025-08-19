@@ -26,6 +26,57 @@
  * ```
  */
 declare module '$env/static/private' {
+	export const NODE_ENV: string;
+	export const DOMAIN: string;
+	export const FRONTEND_URL: string;
+	export const BACKEND_URL: string;
+	export const DB_PASSWORD: string;
+	export const REDIS_PASSWORD: string;
+	export const JWT_SECRET: string;
+	export const SESSION_SECRET: string;
+	export const CSRF_SECRET: string;
+	export const SMTP_HOST: string;
+	export const SMTP_PORT: string;
+	export const SMTP_SECURE: string;
+	export const SMTP_USER: string;
+	export const SMTP_PASS: string;
+	export const FROM_EMAIL: string;
+	export const FROM_NAME: string;
+	export const STORAGE_TYPE: string;
+	export const AWS_ACCESS_KEY_ID: string;
+	export const AWS_SECRET_ACCESS_KEY: string;
+	export const AWS_REGION: string;
+	export const AWS_S3_BUCKET: string;
+	export const GOOGLE_CLIENT_ID: string;
+	export const GOOGLE_CLIENT_SECRET: string;
+	export const GITHUB_CLIENT_ID: string;
+	export const GITHUB_CLIENT_SECRET: string;
+	export const DISCORD_CLIENT_ID: string;
+	export const DISCORD_CLIENT_SECRET: string;
+	export const SLACK_BOT_TOKEN: string;
+	export const SLACK_SIGNING_SECRET: string;
+	export const SLACK_WEBHOOK_URL: string;
+	export const DISCORD_BOT_TOKEN: string;
+	export const DISCORD_WEBHOOK_URL: string;
+	export const GOOGLE_CALENDAR_ENABLED: string;
+	export const OUTLOOK_CLIENT_ID: string;
+	export const OUTLOOK_CLIENT_SECRET: string;
+	export const GOOGLE_DRIVE_ENABLED: string;
+	export const DROPBOX_CLIENT_ID: string;
+	export const DROPBOX_CLIENT_SECRET: string;
+	export const GITHUB_INTEGRATION_ENABLED: string;
+	export const GITHUB_WEBHOOK_SECRET: string;
+	export const GITLAB_CLIENT_ID: string;
+	export const GITLAB_CLIENT_SECRET: string;
+	export const WEBHOOKS_ENABLED: string;
+	export const PROMETHEUS_ENABLED: string;
+	export const GRAFANA_USER: string;
+	export const GRAFANA_PASSWORD: string;
+	export const SENTRY_DSN: string;
+	export const BACKUP_RETENTION_DAYS: string;
+	export const BACKUP_SCHEDULE: string;
+	export const BACKUP_S3_BUCKET: string;
+	export const SSL_EMAIL: string;
 	export const SHELL: string;
 	export const npm_command: string;
 	export const COREPACK_ENABLE_AUTO_PIN: string;
@@ -64,8 +115,8 @@ declare module '$env/static/private' {
 	export const CLAUDECODE: string;
 	export const MOTD_SHOWN: string;
 	export const HOME: string;
-	export const LC_PAPER: string;
 	export const LANG: string;
+	export const LC_PAPER: string;
 	export const _JAVA_AWT_WM_NONREPARENTING: string;
 	export const XDG_CURRENT_DESKTOP: string;
 	export const npm_package_version: string;
@@ -80,9 +131,9 @@ declare module '$env/static/private' {
 	export const SDL_IM_MODULE: string;
 	export const npm_config_npm_version: string;
 	export const XDG_SESSION_CLASS: string;
-	export const TERMINFO: string;
-	export const LC_IDENTIFICATION: string;
 	export const TERM: string;
+	export const LC_IDENTIFICATION: string;
+	export const TERMINFO: string;
 	export const npm_package_name: string;
 	export const npm_config_prefix: string;
 	export const USER: string;
@@ -116,8 +167,7 @@ declare module '$env/static/private' {
 	export const KITTY_INSTALLATION_DIR: string;
 	export const npm_node_execpath: string;
 	export const LC_NUMERIC: string;
-	export const OLDPWD: string;
-	export const NODE_ENV: string;
+	export const VITE_USER_NODE_ENV: string;
 }
 
 /**
@@ -149,6 +199,57 @@ declare module '$env/static/public' {
  */
 declare module '$env/dynamic/private' {
 	export const env: {
+		NODE_ENV: string;
+		DOMAIN: string;
+		FRONTEND_URL: string;
+		BACKEND_URL: string;
+		DB_PASSWORD: string;
+		REDIS_PASSWORD: string;
+		JWT_SECRET: string;
+		SESSION_SECRET: string;
+		CSRF_SECRET: string;
+		SMTP_HOST: string;
+		SMTP_PORT: string;
+		SMTP_SECURE: string;
+		SMTP_USER: string;
+		SMTP_PASS: string;
+		FROM_EMAIL: string;
+		FROM_NAME: string;
+		STORAGE_TYPE: string;
+		AWS_ACCESS_KEY_ID: string;
+		AWS_SECRET_ACCESS_KEY: string;
+		AWS_REGION: string;
+		AWS_S3_BUCKET: string;
+		GOOGLE_CLIENT_ID: string;
+		GOOGLE_CLIENT_SECRET: string;
+		GITHUB_CLIENT_ID: string;
+		GITHUB_CLIENT_SECRET: string;
+		DISCORD_CLIENT_ID: string;
+		DISCORD_CLIENT_SECRET: string;
+		SLACK_BOT_TOKEN: string;
+		SLACK_SIGNING_SECRET: string;
+		SLACK_WEBHOOK_URL: string;
+		DISCORD_BOT_TOKEN: string;
+		DISCORD_WEBHOOK_URL: string;
+		GOOGLE_CALENDAR_ENABLED: string;
+		OUTLOOK_CLIENT_ID: string;
+		OUTLOOK_CLIENT_SECRET: string;
+		GOOGLE_DRIVE_ENABLED: string;
+		DROPBOX_CLIENT_ID: string;
+		DROPBOX_CLIENT_SECRET: string;
+		GITHUB_INTEGRATION_ENABLED: string;
+		GITHUB_WEBHOOK_SECRET: string;
+		GITLAB_CLIENT_ID: string;
+		GITLAB_CLIENT_SECRET: string;
+		WEBHOOKS_ENABLED: string;
+		PROMETHEUS_ENABLED: string;
+		GRAFANA_USER: string;
+		GRAFANA_PASSWORD: string;
+		SENTRY_DSN: string;
+		BACKUP_RETENTION_DAYS: string;
+		BACKUP_SCHEDULE: string;
+		BACKUP_S3_BUCKET: string;
+		SSL_EMAIL: string;
 		SHELL: string;
 		npm_command: string;
 		COREPACK_ENABLE_AUTO_PIN: string;
@@ -187,8 +288,8 @@ declare module '$env/dynamic/private' {
 		CLAUDECODE: string;
 		MOTD_SHOWN: string;
 		HOME: string;
-		LC_PAPER: string;
 		LANG: string;
+		LC_PAPER: string;
 		_JAVA_AWT_WM_NONREPARENTING: string;
 		XDG_CURRENT_DESKTOP: string;
 		npm_package_version: string;
@@ -203,9 +304,9 @@ declare module '$env/dynamic/private' {
 		SDL_IM_MODULE: string;
 		npm_config_npm_version: string;
 		XDG_SESSION_CLASS: string;
-		TERMINFO: string;
-		LC_IDENTIFICATION: string;
 		TERM: string;
+		LC_IDENTIFICATION: string;
+		TERMINFO: string;
 		npm_package_name: string;
 		npm_config_prefix: string;
 		USER: string;
@@ -239,8 +340,7 @@ declare module '$env/dynamic/private' {
 		KITTY_INSTALLATION_DIR: string;
 		npm_node_execpath: string;
 		LC_NUMERIC: string;
-		OLDPWD: string;
-		NODE_ENV: string;
+		VITE_USER_NODE_ENV: string;
 		[key: `PUBLIC_${string}`]: undefined;
 		[key: `${string}`]: string | undefined;
 	}

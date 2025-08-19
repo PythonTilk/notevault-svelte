@@ -147,7 +147,7 @@ router.post('/backup-codes', authenticateToken, requireAdmin, asyncHandler(async
 
 // Generate new encryption key (dangerous operation)
 router.post('/rotate-encryption-key', authenticateToken, requireAdmin, [
-  body('confirmation').equals('I understand this will invalidate all stored secrets')
+  body('confirmation').equals('I understand this will re-encrypt all stored secrets')
 ], asyncHandler(async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -160,12 +160,47 @@ router.post('/rotate-encryption-key', authenticateToken, requireAdmin, [
     ipAddress: req.ip,
     userAgent: req.get('User-Agent')
   });
-  
-  res.json({
-    success: false,
-    message: 'Encryption key rotation is not yet implemented',
-    warning: 'This operation would invalidate all stored secrets and require manual intervention'
-  });
+
+  try {
+    // Perform encryption key rotation
+    const result = await secretManager.rotateEncryptionKey(req.user.id);
+    
+    // Log successful completion
+    await logSecurityEvent(SECURITY_EVENTS.SECURITY_CONFIG_CHANGE, {
+      userId: req.user.id,
+      action: 'encryption_key_rotation_success',
+      rotatedSecrets: result.rotatedCount,
+      keyVersion: result.keyVersion,
+      ipAddress: req.ip,
+      userAgent: req.get('User-Agent')
+    });
+
+    res.json({
+      success: true,
+      message: result.message,
+      data: {
+        rotatedSecrets: result.rotatedCount,
+        keyVersion: result.keyVersion,
+        backupTable: result.backupTable
+      }
+    });
+
+  } catch (error) {
+    // Log the failure
+    await logSecurityEvent(SECURITY_EVENTS.SECURITY_CONFIG_CHANGE, {
+      userId: req.user.id,
+      action: 'encryption_key_rotation_failure',
+      error: error.message,
+      ipAddress: req.ip,
+      userAgent: req.get('User-Agent')
+    });
+
+    res.status(500).json({
+      success: false,
+      error: 'Encryption key rotation failed',
+      message: error.message
+    });
+  }
 }));
 
 // Get secret management status

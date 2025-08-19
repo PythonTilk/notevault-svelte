@@ -5,16 +5,19 @@
   import { api } from '$lib/api';
 
   let users: UserType[] = [];
+  let pendingInvitations = [];
   let searchQuery = '';
   let selectedRole = 'all';
   let showCreateModal = false;
   let selectedUser: UserType | null = null;
   let showUserModal = false;
+  let selectedTab = 'users';
   let loading = true;
   let error = '';
 
   onMount(async () => {
     await loadUsers();
+    await loadPendingInvitations();
   });
 
   async function loadUsers() {
@@ -39,6 +42,31 @@
       users = [];
     } finally {
       loading = false;
+    }
+  }
+
+  async function loadPendingInvitations() {
+    try {
+      const response = await api.getPendingInvitations();
+      pendingInvitations = response || [];
+    } catch (err) {
+      console.error('Failed to load pending invitations:', err);
+      pendingInvitations = [];
+    }
+  }
+
+  async function cancelInvitation(invitationId: string, email: string) {
+    if (!confirm(`Are you sure you want to cancel the invitation for ${email}?`)) {
+      return;
+    }
+
+    try {
+      await api.cancelInvitation(invitationId);
+      showMessage('Invitation cancelled successfully', 'success');
+      await loadPendingInvitations();
+    } catch (err) {
+      console.error('Failed to cancel invitation:', err);
+      showMessage('Failed to cancel invitation', 'error');
     }
   }
 
@@ -102,19 +130,18 @@
 
   async function inviteUser(email: string, role: string, message?: string) {
     try {
-      // This would be implemented with a proper invite API endpoint
-      await api.register({
-        username: email.split('@')[0],
+      await api.inviteUser({
         email,
-        password: 'temp-password', // Would be handled by invite flow
-        displayName: email.split('@')[0]
+        role,
+        message: message || undefined
       });
       showMessage(`Invitation sent to ${email}`, 'success');
       showCreateModal = false;
-      await loadUsers();
+      await loadPendingInvitations(); // Load invitations to show the new one
     } catch (err) {
       console.error('Failed to send invitation:', err);
-      showMessage('Failed to send invitation', 'error');
+      const errorMessage = err.response?.data?.error || 'Failed to send invitation';
+      showMessage(errorMessage, 'error');
     }
   }
 
@@ -178,12 +205,12 @@
     <div>
       <h1 class="text-xl font-bold text-white">User Management</h1>
       <p class="text-dark-400 text-sm">
-        {userStats.total} total users • {userStats.online} online
+        {userStats.total} total users • {userStats.online} online • {pendingInvitations.length} pending invitations
       </p>
     </div>
     
     <div class="flex items-center space-x-3">
-      <button class="btn-secondary" on:click={loadUsers}>
+      <button class="btn-secondary" on:click={() => { loadUsers(); loadPendingInvitations(); }}>
         <Filter class="w-4 h-4 mr-2" />
         Refresh
       </button>
@@ -195,6 +222,36 @@
         Invite User
       </button>
     </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="mt-6">
+    <nav class="flex space-x-8">
+      <button
+        on:click={() => selectedTab = 'users'}
+        class="flex items-center space-x-2 pb-4 text-sm font-medium border-b-2 transition-colors"
+        class:text-white={selectedTab === 'users'}
+        class:border-primary-400={selectedTab === 'users'}
+        class:text-dark-400={selectedTab !== 'users'}
+        class:border-transparent={selectedTab !== 'users'}
+        class:hover:text-white={selectedTab !== 'users'}
+      >
+        <User class="w-4 h-4" />
+        <span>Users ({users.length})</span>
+      </button>
+      <button
+        on:click={() => selectedTab = 'invitations'}
+        class="flex items-center space-x-2 pb-4 text-sm font-medium border-b-2 transition-colors"
+        class:text-white={selectedTab === 'invitations'}
+        class:border-primary-400={selectedTab === 'invitations'}
+        class:text-dark-400={selectedTab !== 'invitations'}
+        class:border-transparent={selectedTab !== 'invitations'}
+        class:hover:text-white={selectedTab !== 'invitations'}
+      >
+        <Mail class="w-4 h-4" />
+        <span>Pending Invitations ({pendingInvitations.length})</span>
+      </button>
+    </nav>
   </div>
 </header>
 

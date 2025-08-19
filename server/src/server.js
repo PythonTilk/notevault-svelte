@@ -17,6 +17,11 @@ import adminRoutes from './routes/admin.js';
 import auditRoutes from './routes/audit.js';
 import secretsRoutes from './routes/secrets.js';
 import integrationsRoutes from './routes/integrations.js';
+import databaseHealthRoutes from './routes/database-health.js';
+import dlpRoutes from './routes/dlp.js';
+import backupRoutes from './routes/backup.js';
+import searchRoutes from './routes/search.js';
+import aiRoutes from './routes/ai.js';
 
 // Import database initialization
 import initDatabase from './utils/initDatabase.js';
@@ -143,6 +148,11 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/secrets', secretsRoutes);
 app.use('/api/integrations', integrationsRoutes);
+app.use('/api/database', databaseHealthRoutes);
+app.use('/api/dlp', dlpRoutes);
+app.use('/api/backup', backupRoutes);
+app.use('/api/search', searchRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Swagger API Documentation
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, swaggerOptions));

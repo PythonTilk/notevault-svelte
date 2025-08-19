@@ -17,6 +17,9 @@
   import { unreadCount } from '$lib/stores/notifications';
   import { goto } from '$app/navigation';
   
+  export let visible = true;
+  export let focusModeActive = false;
+  
   let searchQuery = '';
 
   const navigation = [
@@ -57,9 +60,8 @@
   }
 </script>
 
-<div class="flex h-screen bg-dark-950">
-  <!-- Sidebar -->
-  <div class="flex flex-col w-64 bg-dark-900 border-r border-dark-800">
+<!-- Sidebar -->
+<div class="flex flex-col bg-dark-900 border-r border-dark-800 sidebar-transition {visible ? 'w-64' : 'w-0 -translate-x-full'} {focusModeActive ? 'opacity-50' : ''} overflow-hidden">
     <!-- Logo -->
     <div class="flex items-center px-6 py-4 border-b border-dark-800">
       <div class="flex items-center space-x-3">
@@ -170,9 +172,3 @@
       {/if}
     </div>
   </div>
-
-  <!-- Main Content -->
-  <div class="flex-1 flex flex-col overflow-hidden">
-    <slot />
-  </div>
-</div>

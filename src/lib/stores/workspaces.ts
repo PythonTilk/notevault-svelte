@@ -232,5 +232,30 @@ export const workspaceStore = {
       console.error('Failed to delete note:', error);
       throw error;
     }
+  },
+  
+  getNote: async (noteId: string) => {
+    try {
+      const noteData = await api.getNote(noteId);
+      const note: Note = {
+        id: noteData.id,
+        title: noteData.title,
+        content: noteData.content,
+        type: noteData.type,
+        workspaceId: noteData.workspaceId,
+        authorId: noteData.authorId,
+        position: noteData.position || { x: 0, y: 0 },
+        size: noteData.size || { width: 300, height: 200 },
+        color: noteData.color,
+        tags: noteData.tags || [],
+        createdAt: new Date(noteData.createdAt),
+        updatedAt: new Date(noteData.updatedAt),
+        isPublic: noteData.isPublic
+      };
+      return note;
+    } catch (error) {
+      console.error('Failed to get note:', error);
+      throw error;
+    }
   }
 };

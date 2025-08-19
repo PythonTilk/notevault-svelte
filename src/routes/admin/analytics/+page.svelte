@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { 
     Users, 
     FileText, 
@@ -8,7 +8,15 @@
     Calendar,
     Clock,
     Activity,
-    BarChart3
+    BarChart3,
+    AlertTriangle,
+    Server,
+    Zap,
+    CheckCircle,
+    XCircle,
+    RefreshCw,
+    Download,
+    Eye
   } from 'lucide-svelte';
   import LineChart from '$lib/components/charts/LineChart.svelte';
   import BarChart from '$lib/components/charts/BarChart.svelte';
@@ -17,6 +25,10 @@
 
   let timeRange = '7d';
   let isLoading = false;
+  let selectedTab = 'overview';
+  let realTimeEnabled = false;
+  let realTimeInterval;
+  
   let analytics = {
     overview: {
       totalUsers: 0,
@@ -32,20 +44,16 @@
       deviceTypes: [],
       topFeatures: [],
       errorsByType: []
-    },
-    systemHealth: {
-      status: 'healthy',
-      uptime: 0,
-      cpuUsage: 0,
-      memoryUsage: 0,
-      diskUsage: 0,
-      responseTime: 0
     }
   };
 
   let systemHealth = null;
-  let activityFeed = [];
   let recentActivity = [];
+  let performanceMetrics = null;
+  let errorAnalytics = null;
+  let alerts = [];
+  let apiUsageStats = null;
+  let realTimeMetrics = null;
 
   const timeRangeOptions = [
     { value: '24h', label: 'Last 24 Hours' },
@@ -54,8 +62,23 @@
     { value: '90d', label: 'Last 90 Days' }
   ];
 
+  const tabs = [
+    { id: 'overview', label: 'Overview', icon: BarChart3 },
+    { id: 'performance', label: 'Performance', icon: Zap },
+    { id: 'errors', label: 'Errors', icon: AlertTriangle },
+    { id: 'realtime', label: 'Real-time', icon: Activity },
+    { id: 'api', label: 'API Usage', icon: Server }
+  ];
+
   onMount(() => {
     loadAnalytics();
+    loadAdditionalData();
+  });
+
+  onDestroy(() => {
+    if (realTimeInterval) {
+      clearInterval(realTimeInterval);
+    }
   });
 
   async function loadAnalytics() {
@@ -69,22 +92,22 @@
       ]);
 
       // Handle analytics data
-      if (analyticsData.status === 'fulfilled') {
-        analytics = analyticsData.value;
+      if (analyticsData.status === 'fulfilled' && analyticsData.value?.data) {
+        analytics = analyticsData.value.data;
       } else {
         analytics = generateMockData();
       }
 
       // Handle system health data
-      if (healthData.status === 'fulfilled') {
-        systemHealth = healthData.value;
+      if (healthData.status === 'fulfilled' && healthData.value?.data) {
+        systemHealth = healthData.value.data;
       } else {
         systemHealth = generateMockSystemHealth();
       }
 
       // Handle activity feed data
-      if (activityData.status === 'fulfilled') {
-        recentActivity = activityData.value;
+      if (activityData.status === 'fulfilled' && activityData.value?.data) {
+        recentActivity = activityData.value.data;
       } else {
         recentActivity = generateMockActivity();
       }
@@ -95,6 +118,96 @@
       recentActivity = generateMockActivity();
     } finally {
       isLoading = false;
+    }
+  }
+
+  async function loadAdditionalData() {
+    try {
+      const [perfData, errorData, alertsData] = await Promise.allSettled([
+        api.getPerformanceMetrics({ timeRange, includeDetails: true }),
+        api.getErrorAnalytics({ timeRange, limit: 100 }),
+        api.getAlerts({ status: 'active', limit: 10 })
+      ]);
+
+      if (perfData.status === 'fulfilled' && perfData.value?.data) {
+        performanceMetrics = perfData.value.data;
+      }
+
+      if (errorData.status === 'fulfilled' && errorData.value?.data) {
+        errorAnalytics = errorData.value.data;
+      }
+
+      if (alertsData.status === 'fulfilled' && alertsData.value?.data) {
+        alerts = alertsData.value.data.alerts || [];
+      }
+    } catch (error) {
+      console.error('Failed to load additional analytics data:', error);
+    }
+  }
+
+  async function loadRealTimeMetrics() {
+    try {
+      const response = await api.getRealTimeMetrics();
+      if (response?.data) {
+        realTimeMetrics = response.data;
+        if (realTimeMetrics.system) {
+          systemHealth = { ...systemHealth, ...realTimeMetrics.system };
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load real-time metrics:', error);
+    }
+  }
+
+  function toggleRealTime() {
+    realTimeEnabled = !realTimeEnabled;
+    if (realTimeEnabled) {
+      loadRealTimeMetrics();
+      realTimeInterval = setInterval(loadRealTimeMetrics, 5000); // Update every 5 seconds
+    } else {
+      clearInterval(realTimeInterval);
+      realTimeInterval = null;
+    }
+  }
+
+  async function exportData() {
+    try {
+      const response = await api.exportAnalytics({ 
+        timeRange, 
+        format: 'csv', 
+        type: selectedTab === 'overview' ? 'dashboard' : selectedTab 
+      });
+      // Handle CSV download
+      const blob = new Blob([response], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `analytics-${selectedTab}-${timeRange}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to export data:', error);
+      alert('Failed to export data. Please try again.');
+    }
+  }
+
+  async function acknowledgeAlert(alertId) {
+    try {
+      await api.acknowledgeAlert(alertId);
+      loadAdditionalData(); // Refresh alerts
+    } catch (error) {
+      console.error('Failed to acknowledge alert:', error);
+    }
+  }
+
+  async function resolveAlert(alertId) {
+    try {
+      await api.resolveAlert(alertId);
+      loadAdditionalData(); // Refresh alerts
+    } catch (error) {
+      console.error('Failed to resolve alert:', error);
     }
   }
 
@@ -245,6 +358,7 @@
 
   $: if (timeRange) {
     loadAnalytics();
+    loadAdditionalData();
   }
 </script>
 
@@ -289,6 +403,23 @@
       <p class="text-dark-400 mt-1">Comprehensive usage analytics and insights</p>
     </div>
     <div class="flex items-center space-x-3">
+      <button
+        on:click={exportData}
+        class="btn-secondary flex items-center space-x-2"
+        title="Export data"
+      >
+        <Download class="w-4 h-4" />
+        <span>Export</span>
+      </button>
+      <button
+        on:click={toggleRealTime}
+        class="btn-secondary flex items-center space-x-2"
+        class:active={realTimeEnabled}
+        title="Toggle real-time monitoring"
+      >
+        <Activity class="w-4 h-4 {realTimeEnabled ? 'animate-pulse' : ''}" />
+        <span>{realTimeEnabled ? 'Live' : 'Real-time'}</span>
+      </button>
       <select
         bind:value={timeRange}
         class="bg-dark-800 border border-dark-700 text-white rounded-lg px-3 py-2 text-sm"
@@ -298,6 +429,26 @@
         {/each}
       </select>
     </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="mt-6">
+    <nav class="flex space-x-8">
+      {#each tabs as tab}
+        <button
+          on:click={() => selectedTab = tab.id}
+          class="flex items-center space-x-2 pb-4 text-sm font-medium border-b-2 transition-colors"
+          class:text-white={selectedTab === tab.id}
+          class:border-primary-400={selectedTab === tab.id}
+          class:text-dark-400={selectedTab !== tab.id}
+          class:border-transparent={selectedTab !== tab.id}
+          class:hover:text-white={selectedTab !== tab.id}
+        >
+          <svelte:component this={tab.icon} class="w-4 h-4" />
+          <span>{tab.label}</span>
+        </button>
+      {/each}
+    </nav>
   </div>
 </header>
 
@@ -310,6 +461,7 @@
         <span class="ml-3 text-white">Loading analytics...</span>
       </div>
     {:else}
+      {#if selectedTab === 'overview'}
       <!-- Overview Stats -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
         <div class="card p-4">
@@ -513,53 +665,263 @@
         </div>
       </div>
 
-      <!-- Real-time Activity Feed -->
-      <div class="card p-6">
-        <div class="flex items-center justify-between mb-6">
-          <h3 class="text-lg font-semibold text-white">Recent Activity</h3>
-          <button 
-            on:click={loadAnalytics}
-            class="p-2 text-dark-400 hover:text-white rounded-lg hover:bg-dark-700 transition-colors"
-            title="Refresh activity"
-          >
-            <Activity class="w-4 h-4" />
-          </button>
-        </div>
-        <div class="space-y-3">
-          {#each recentActivity.slice(0, 8) as activity}
-            <div class="flex items-center justify-between p-3 bg-dark-800 rounded-lg">
-              <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                  {activity.user.name.charAt(0)}{activity.user.name.split(' ')[1]?.charAt(0) || ''}
+        <!-- Real-time Activity Feed -->
+        <div class="card p-6">
+          <div class="flex items-center justify-between mb-6">
+            <h3 class="text-lg font-semibold text-white">Recent Activity</h3>
+            <button 
+              on:click={loadAnalytics}
+              class="p-2 text-dark-400 hover:text-white rounded-lg hover:bg-dark-700 transition-colors"
+              title="Refresh activity"
+            >
+              <RefreshCw class="w-4 h-4" />
+            </button>
+          </div>
+          <div class="space-y-3">
+            {#each recentActivity.slice(0, 8) as activity}
+              <div class="flex items-center justify-between p-3 bg-dark-800 rounded-lg">
+                <div class="flex items-center space-x-3">
+                  <div class="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                    {activity.user.name.charAt(0)}{activity.user.name.split(' ')[1]?.charAt(0) || ''}
+                  </div>
+                  <div class="flex-1">
+                    <p class="text-white font-medium">{activity.user.name} {activity.action}</p>
+                    <div class="flex items-center space-x-3 text-xs text-dark-400 mt-1">
+                      <span>{new Date(activity.timestamp).toLocaleTimeString()}</span>
+                      {#if activity.details?.ip}
+                        <span>•</span>
+                        <span>{activity.details.ip}</span>
+                      {/if}
+                    </div>
+                  </div>
                 </div>
-                <div class="flex-1">
-                  <p class="text-white font-medium">{activity.user.name} {activity.action}</p>
-                  <div class="flex items-center space-x-3 text-xs text-dark-400 mt-1">
-                    <span>{new Date(activity.timestamp).toLocaleTimeString()}</span>
-                    {#if activity.details?.ip}
-                      <span>•</span>
-                      <span>{activity.details.ip}</span>
-                    {/if}
+                <div class="flex items-center space-x-2">
+                  <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                  <span class="text-xs text-dark-500">
+                    {Math.floor((Date.now() - new Date(activity.timestamp).getTime()) / 60000)}m ago
+                  </span>
+                </div>
+              </div>
+            {/each}
+          </div>
+
+          {#if recentActivity.length === 0}
+            <div class="text-center py-8">
+              <Activity class="h-12 w-12 mx-auto mb-3 text-dark-500" />
+              <p class="text-dark-400">No recent activity</p>
+            </div>
+          {/if}
+        </div>
+      
+      {:else if selectedTab === 'performance'}
+        <!-- Performance Tab -->
+        <div class="space-y-6">
+          <div class="card p-6">
+            <h3 class="text-lg font-semibold text-white mb-6">Performance Overview</h3>
+            {#if performanceMetrics}
+              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div class="text-center">
+                  <div class="text-2xl font-bold text-white">{Math.round(performanceMetrics.summary?.responseTime || 0)}ms</div>
+                  <div class="text-sm text-dark-400">Avg Response Time</div>
+                </div>
+                <div class="text-center">
+                  <div class="text-2xl font-bold text-white">{performanceMetrics.summary?.throughput || 0}</div>
+                  <div class="text-sm text-dark-400">Requests/min</div>
+                </div>
+                <div class="text-center">
+                  <div class="text-2xl font-bold text-white">{formatPercentage(performanceMetrics.summary?.errorRate || 0)}</div>
+                  <div class="text-sm text-dark-400">Error Rate</div>
+                </div>
+                <div class="text-center">
+                  <div class="text-2xl font-bold text-white">{formatPercentage(performanceMetrics.summary?.uptime || 0.99)}</div>
+                  <div class="text-sm text-dark-400">Uptime</div>
+                </div>
+              </div>
+            {:else}
+              <div class="text-center py-8">
+                <Server class="h-12 w-12 mx-auto mb-3 text-dark-500" />
+                <p class="text-dark-400">Performance data not available</p>
+              </div>
+            {/if}
+          </div>
+        </div>
+      
+      {:else if selectedTab === 'errors'}
+        <!-- Error Analytics Tab -->
+        <div class="space-y-6">
+          <div class="card p-6">
+            <h3 class="text-lg font-semibold text-white mb-6">Error Analysis</h3>
+            {#if errorAnalytics}
+              <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div>
+                  <h4 class="text-md font-semibold text-white mb-4">Error Distribution</h4>
+                  <div class="space-y-3">
+                    {#each errorAnalytics.stats || [] as errorType}
+                      <div class="flex items-center justify-between p-3 bg-dark-800 rounded-lg">
+                        <span class="text-white">{errorType.type}</span>
+                        <span class="text-red-400 font-semibold">{errorType.count}</span>
+                      </div>
+                    {/each}
+                  </div>
+                </div>
+                <div>
+                  <h4 class="text-md font-semibold text-white mb-4">Recent Errors</h4>
+                  <div class="space-y-2 max-h-80 overflow-y-auto">
+                    {#each errorAnalytics.recentErrors || [] as error}
+                      <div class="p-3 bg-dark-800 rounded-lg">
+                        <div class="flex items-center justify-between mb-2">
+                          <span class="text-sm font-medium text-white">{error.message}</span>
+                          <span class="text-xs text-dark-400">{new Date(error.timestamp).toLocaleTimeString()}</span>
+                        </div>
+                        <div class="text-xs text-dark-500">{error.stack?.slice(0, 100)}...</div>
+                      </div>
+                    {/each}
                   </div>
                 </div>
               </div>
-              <div class="flex items-center space-x-2">
-                <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                <span class="text-xs text-dark-500">
-                  {Math.floor((Date.now() - new Date(activity.timestamp).getTime()) / 60000)}m ago
-                </span>
+            {:else}
+              <div class="text-center py-8">
+                <AlertTriangle class="h-12 w-12 mx-auto mb-3 text-dark-500" />
+                <p class="text-dark-400">Error data not available</p>
+              </div>
+            {/if}
+          </div>
+
+          <!-- Alerts Section -->
+          {#if alerts.length > 0}
+            <div class="card p-6">
+              <h3 class="text-lg font-semibold text-white mb-6">Active Alerts</h3>
+              <div class="space-y-3">
+                {#each alerts as alert}
+                  <div class="flex items-center justify-between p-4 bg-dark-800 rounded-lg border-l-4" 
+                       class:border-red-400={alert.level === 'critical'}
+                       class:border-yellow-400={alert.level === 'warning'}
+                       class:border-blue-400={alert.level === 'info'}>
+                    <div class="flex-1">
+                      <div class="flex items-center space-x-2 mb-1">
+                        <span class="text-white font-medium">{alert.title}</span>
+                        <span class="text-xs px-2 py-1 rounded-full"
+                              class:bg-red-900={alert.level === 'critical'}
+                              class:bg-yellow-900={alert.level === 'warning'}
+                              class:bg-blue-900={alert.level === 'info'}
+                              class:text-red-200={alert.level === 'critical'}
+                              class:text-yellow-200={alert.level === 'warning'}
+                              class:text-blue-200={alert.level === 'info'}>
+                          {alert.level}
+                        </span>
+                      </div>
+                      <p class="text-sm text-dark-400">{alert.description}</p>
+                      <div class="text-xs text-dark-500 mt-1">
+                        {new Date(alert.timestamp).toLocaleString()}
+                      </div>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                      <button
+                        on:click={() => acknowledgeAlert(alert.id)}
+                        class="btn-sm btn-secondary"
+                        title="Acknowledge"
+                      >
+                        <Eye class="w-3 h-3" />
+                      </button>
+                      <button
+                        on:click={() => resolveAlert(alert.id)}
+                        class="btn-sm btn-primary"
+                        title="Resolve"
+                      >
+                        <CheckCircle class="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                {/each}
               </div>
             </div>
-          {/each}
+          {/if}
         </div>
+      
+      {:else if selectedTab === 'realtime'}
+        <!-- Real-time Tab -->
+        <div class="space-y-6">
+          <div class="card p-6">
+            <div class="flex items-center justify-between mb-6">
+              <h3 class="text-lg font-semibold text-white">Real-time Monitoring</h3>
+              <div class="flex items-center space-x-2">
+                <div class="w-2 h-2 rounded-full" class:bg-green-400={realTimeEnabled} class:bg-red-400={!realTimeEnabled}></div>
+                <span class="text-sm text-dark-400">{realTimeEnabled ? 'Live' : 'Offline'}</span>
+              </div>
+            </div>
+            
+            {#if realTimeMetrics}
+              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div class="text-center p-4 bg-dark-800 rounded-lg">
+                  <div class="text-2xl font-bold text-white">{realTimeMetrics.performance?.activeUsers || 0}</div>
+                  <div class="text-sm text-dark-400">Active Users</div>
+                </div>
+                <div class="text-center p-4 bg-dark-800 rounded-lg">
+                  <div class="text-2xl font-bold text-white">{realTimeMetrics.performance?.requestsPerMinute || 0}</div>
+                  <div class="text-sm text-dark-400">Requests/min</div>
+                </div>
+                <div class="text-center p-4 bg-dark-800 rounded-lg">
+                  <div class="text-2xl font-bold text-white">{Math.round(realTimeMetrics.performance?.avgResponseTime || 0)}ms</div>
+                  <div class="text-sm text-dark-400">Response Time</div>
+                </div>
+                <div class="text-center p-4 bg-dark-800 rounded-lg">
+                  <div class="text-2xl font-bold text-white">{realTimeMetrics.alerts?.length || 0}</div>
+                  <div class="text-sm text-dark-400">Active Alerts</div>
+                </div>
+              </div>
 
-        {#if recentActivity.length === 0}
-          <div class="text-center py-8">
-            <Activity class="h-12 w-12 mx-auto mb-3 text-dark-500" />
-            <p class="text-dark-400">No recent activity</p>
+              {#if realTimeMetrics.recentActivity}
+                <div class="mt-6">
+                  <h4 class="text-md font-semibold text-white mb-4">Live Activity Feed</h4>
+                  <div class="space-y-2 max-h-60 overflow-y-auto">
+                    {#each realTimeMetrics.recentActivity.slice(0, 10) as activity}
+                      <div class="flex items-center justify-between p-2 bg-dark-800 rounded">
+                        <span class="text-white text-sm">{activity.action}</span>
+                        <span class="text-xs text-dark-400">{new Date(activity.timestamp).toLocaleTimeString()}</span>
+                      </div>
+                    {/each}
+                  </div>
+                </div>
+              {/if}
+            {:else}
+              <div class="text-center py-8">
+                <Activity class="h-12 w-12 mx-auto mb-3 text-dark-500" />
+                <p class="text-dark-400">Enable real-time monitoring to see live data</p>
+                <button on:click={toggleRealTime} class="btn-primary mt-4">
+                  Start Monitoring
+                </button>
+              </div>
+            {/if}
           </div>
-        {/if}
-      </div>
+        </div>
+      
+      {:else if selectedTab === 'api'}
+        <!-- API Usage Tab -->
+        <div class="space-y-6">
+          <div class="card p-6">
+            <h3 class="text-lg font-semibold text-white mb-6">API Usage Statistics</h3>
+            <div class="text-center py-8">
+              <Server class="h-12 w-12 mx-auto mb-3 text-dark-500" />
+              <p class="text-dark-400">API usage data will be displayed here</p>
+              <p class="text-sm text-dark-500 mt-2">Connect to the /analytics/api-usage endpoint</p>
+            </div>
+          </div>
+        </div>
+      {/if}
     {/if}
   </div>
 </main>
+
+<style>
+  .btn-sm {
+    @apply px-2 py-1 text-xs rounded;
+  }
+  
+  .btn-secondary.active {
+    @apply bg-primary-600 text-white;
+  }
+  
+  .animate-pulse-slow {
+    animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+</style>

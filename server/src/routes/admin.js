@@ -131,6 +131,149 @@ router.delete('/users/:id', (req, res) => {
   });
 });
 
+// Invite user
+router.post('/invite', [
+  body('email').isEmail().withMessage('Valid email is required'),
+  body('role').isIn(['admin', 'moderator', 'user']).withMessage('Valid role is required'),
+  body('message').optional().isString()
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
+  const { email, role, message } = req.body;
+  const inviterId = req.user.id;
+  const inviteToken = uuidv4();
+
+  try {
+    // Check if user already exists
+    const existingUser = await new Promise((resolve, reject) => {
+      db.get('SELECT id FROM users WHERE email = ?', [email], (err, user) => {
+        if (err) reject(err);
+        else resolve(user);
+      });
+    });
+
+    if (existingUser) {
+      return res.status(400).json({ error: 'User with this email already exists' });
+    }
+
+    // Check if invitation already exists
+    const existingInvite = await new Promise((resolve, reject) => {
+      db.get('SELECT id FROM user_invitations WHERE email = ? AND status = "pending"', [email], (err, invite) => {
+        if (err) reject(err);
+        else resolve(invite);
+      });
+    });
+
+    if (existingInvite) {
+      return res.status(400).json({ error: 'Invitation already sent to this email' });
+    }
+
+    // Create invitation record
+    await new Promise((resolve, reject) => {
+      db.run(`
+        INSERT INTO user_invitations (id, email, role, token, inviter_id, message, status, expires_at, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?)
+      `, [
+        uuidv4(),
+        email,
+        role,
+        inviteToken,
+        inviterId,
+        message || null,
+        new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // Expires in 7 days
+        new Date().toISOString()
+      ], function(err) {
+        if (err) reject(err);
+        else resolve(this);
+      });
+    });
+
+    // Get inviter name for email
+    const inviter = await new Promise((resolve, reject) => {
+      db.get('SELECT display_name, email FROM users WHERE id = ?', [inviterId], (err, user) => {
+        if (err) reject(err);
+        else resolve(user);
+      });
+    });
+
+    // Send invitation email (you would implement this with your email service)
+    try {
+      // This would be implemented with your email service
+      // await emailService.sendUserInvitation(email, inviter.display_name, inviteToken, role, message);
+      console.log(`Invitation email would be sent to ${email} with token ${inviteToken}`);
+    } catch (emailError) {
+      console.error('Failed to send invitation email:', emailError);
+      // Don't fail the request if email fails, but log it
+    }
+
+    res.json({
+      success: true,
+      message: 'Invitation sent successfully',
+      invitation: {
+        email,
+        role,
+        token: inviteToken,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('Invitation error:', error);
+    res.status(500).json({ error: 'Failed to send invitation' });
+  }
+});
+
+// Get pending invitations
+router.get('/invitations', (req, res) => {
+  const query = `
+    SELECT 
+      ui.*,
+      u.display_name as inviter_name,
+      u.email as inviter_email
+    FROM user_invitations ui
+    LEFT JOIN users u ON ui.inviter_id = u.id
+    WHERE ui.status = 'pending' AND ui.expires_at > ?
+    ORDER BY ui.created_at DESC
+  `;
+
+  db.all(query, [new Date().toISOString()], (err, invitations) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    res.json(invitations.map(inv => ({
+      id: inv.id,
+      email: inv.email,
+      role: inv.role,
+      message: inv.message,
+      inviterName: inv.inviter_name,
+      inviterEmail: inv.inviter_email,
+      createdAt: inv.created_at,
+      expiresAt: inv.expires_at
+    })));
+  });
+});
+
+// Cancel invitation
+router.delete('/invitations/:id', (req, res) => {
+  const invitationId = req.params.id;
+
+  db.run('UPDATE user_invitations SET status = "cancelled" WHERE id = ? AND status = "pending"', [invitationId], function(err) {
+    if (err) {
+      return res.status(500).json({ error: 'Failed to cancel invitation' });
+    }
+
+    if (this.changes === 0) {
+      return res.status(404).json({ error: 'Invitation not found or already processed' });
+    }
+
+    res.json({ success: true, message: 'Invitation cancelled successfully' });
+  });
+});
+
 // Get all workspaces
 router.get('/workspaces', (req, res) => {
   const { limit = 50, offset = 0 } = req.query;

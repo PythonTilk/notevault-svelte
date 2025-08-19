@@ -42,79 +42,121 @@
   }
 
   async function searchAcrossData(query: string) {
-    const lowerQuery = query.toLowerCase();
     const results: any[] = [];
 
     try {
-      // Search workspaces
-      if (searchType === 'all' || searchType === 'workspaces') {
-        const workspaces = await api.getWorkspaces();
-        const matchingWorkspaces = workspaces.filter((workspace: any) =>
-          workspace.name.toLowerCase().includes(lowerQuery) ||
-          workspace.description?.toLowerCase().includes(lowerQuery)
-        ).map((workspace: any) => ({
-          ...workspace,
-          type: 'workspace',
-          title: workspace.name,
-          description: workspace.description || 'No description',
-          rawDescription: workspace.description || 'No description',
-          url: `/workspaces/${workspace.id}`
-        }));
-        results.push(...matchingWorkspaces);
-      }
+      // First try the new advanced search API
+      const contentTypes = searchType === 'all' ? undefined : [searchType === 'notes' ? 'notes' : searchType === 'workspaces' ? 'workspaces' : 'files'];
+      
+      const searchResponse = await api.search(query, {
+        contentTypes,
+        sortBy: 'relevance',
+        includeHighlights: true,
+        limit: 50
+      });
 
-      // Search notes (we'll need to iterate through workspaces)
-      if (searchType === 'all' || searchType === 'notes') {
-        const workspaces = await api.getWorkspaces();
-        for (const workspace of workspaces) {
-          try {
-            const notes = await api.getWorkspaceNotes(workspace.id);
-            const matchingNotes = notes.filter((note: any) =>
-              note.title.toLowerCase().includes(lowerQuery) ||
-              note.content?.toLowerCase().includes(lowerQuery)
-            ).map((note: any) => ({
-              ...note,
-              type: 'note',
-              title: note.title,
-              description: note.content ? getHighlightedPreview(note.content, lowerQuery, 80) : 'Empty note',
-              rawDescription: note.content || '',
-              url: `/workspaces/${workspace.id}?note=${note.id}`,
-              workspaceName: workspace.name
-            }));
-            results.push(...matchingNotes);
-          } catch (error) {
-            // Skip workspace if we can't access notes
-            console.warn(`Could not search notes in workspace ${workspace.id}:`, error);
+      if (searchResponse.success && searchResponse.data) {
+        // Transform advanced search results to match existing format
+        const transformedResults = searchResponse.data.results.map((result: any) => ({
+          ...result,
+          type: result.contentType,
+          title: result.title || result.name || result.filename || 'Untitled',
+          description: result.content_highlight || result.title_highlight || result.content || result.description || '',
+          rawDescription: result.content || result.description || '',
+          url: getResultUrl(result),
+          relevanceScore: result.relevanceScore
+        }));
+
+        results.push(...transformedResults);
+        
+        // Log successful advanced search
+        console.log(`Advanced search completed: ${searchResponse.data.totalResults} results in ${searchResponse.data.responseTime}ms`);
+      } else {
+        throw new Error('Advanced search failed, falling back to basic search');
+      }
+    } catch (error) {
+      console.warn('Advanced search failed, using fallback search:', error);
+      
+      // Fallback to the original search implementation
+      const lowerQuery = query.toLowerCase();
+
+      try {
+        // Search workspaces
+        if (searchType === 'all' || searchType === 'workspaces') {
+          const workspaces = await api.getWorkspaces();
+          const matchingWorkspaces = workspaces.filter((workspace: any) =>
+            workspace.name.toLowerCase().includes(lowerQuery) ||
+            workspace.description?.toLowerCase().includes(lowerQuery)
+          ).map((workspace: any) => ({
+            ...workspace,
+            type: 'workspace',
+            title: workspace.name,
+            description: workspace.description || 'No description',
+            rawDescription: workspace.description || 'No description',
+            url: `/workspaces/${workspace.id}`
+          }));
+          results.push(...matchingWorkspaces);
+        }
+
+        // Search notes (we'll need to iterate through workspaces)
+        if (searchType === 'all' || searchType === 'notes') {
+          const workspaces = await api.getWorkspaces();
+          for (const workspace of workspaces) {
+            try {
+              const notes = await api.getWorkspaceNotes(workspace.id);
+              const matchingNotes = notes.filter((note: any) =>
+                note.title.toLowerCase().includes(lowerQuery) ||
+                note.content?.toLowerCase().includes(lowerQuery)
+              ).map((note: any) => ({
+                ...note,
+                type: 'note',
+                title: note.title,
+                description: note.content ? getHighlightedPreview(note.content, lowerQuery, 80) : 'Empty note',
+                rawDescription: note.content || '',
+                url: `/workspaces/${workspace.id}?note=${note.id}`,
+                workspaceName: workspace.name
+              }));
+              results.push(...matchingNotes);
+            } catch (error) {
+              // Skip workspace if we can't access notes
+              console.warn(`Could not search notes in workspace ${workspace.id}:`, error);
+            }
           }
         }
-      }
 
-      // Search files
-      if (searchType === 'all' || searchType === 'files') {
-        try {
-          const files = await api.getFiles({ limit: 100 });
-          const matchingFiles = files.filter((file: any) =>
-            file.name.toLowerCase().includes(lowerQuery)
-          ).map((file: any) => ({
-            ...file,
-            type: 'file',
-            title: file.name,
-            description: `${formatFileSize(file.size)} • ${formatDate(new Date(file.createdAt))}`,
-            rawDescription: `${file.name} - ${formatFileSize(file.size)}`,
-            url: api.getFileDownloadUrl(file.id)
-          }));
-          results.push(...matchingFiles);
-        } catch (error) {
-          console.warn('Could not search files:', error);
+        // Search files
+        if (searchType === 'all' || searchType === 'files') {
+          try {
+            const files = await api.getFiles({ limit: 100 });
+            const matchingFiles = files.filter((file: any) =>
+              file.name.toLowerCase().includes(lowerQuery)
+            ).map((file: any) => ({
+              ...file,
+              type: 'file',
+              title: file.name,
+              description: `${formatFileSize(file.size)} • ${formatDate(new Date(file.createdAt))}`,
+              rawDescription: `${file.name} - ${formatFileSize(file.size)}`,
+              url: api.getFileDownloadUrl(file.id)
+            }));
+            results.push(...matchingFiles);
+          } catch (error) {
+            console.warn('Could not search files:', error);
+          }
         }
-      }
 
-    } catch (error) {
-      console.error('Search error:', error);
+      } catch (error) {
+        console.error('Fallback search error:', error);
+      }
     }
 
+    // Sort results by relevance score if available, otherwise use original sorting
     return results.sort((a, b) => {
-      // Sort by relevance (exact matches first, then partial)
+      if (a.relevanceScore && b.relevanceScore) {
+        return b.relevanceScore - a.relevanceScore;
+      }
+      
+      // Fallback to original sorting
+      const lowerQuery = query.toLowerCase();
       const aExact = a.title.toLowerCase() === lowerQuery;
       const bExact = b.title.toLowerCase() === lowerQuery;
       if (aExact && !bExact) return -1;
@@ -124,6 +166,23 @@
       const typePriority = { note: 3, workspace: 2, file: 1 };
       return (typePriority[b.type] || 0) - (typePriority[a.type] || 0);
     });
+  }
+
+  function getResultUrl(result: any): string {
+    switch (result.contentType) {
+      case 'notes':
+        return `/workspaces/${result.workspace_id}?note=${result.id}`;
+      case 'workspaces':
+        return `/workspaces/${result.id}`;
+      case 'files':
+        return api.getFileDownloadUrl(result.id);
+      case 'users':
+        return `/users/${result.id}`;
+      case 'chat':
+        return `/chat?message=${result.id}`;
+      default:
+        return '#';
+    }
   }
 
   function formatFileSize(bytes: number): string {

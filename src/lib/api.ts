@@ -343,20 +343,6 @@ class ApiClient {
     return this.request(`/admin/announcements/${id}`, { method: 'DELETE' });
   }
 
-  async getAuditLogs(params?: {
-    limit?: number;
-    offset?: number;
-    action?: string;
-    userId?: string;
-  }) {
-    const query = new URLSearchParams();
-    if (params?.limit) query.set('limit', params.limit.toString());
-    if (params?.offset) query.set('offset', params.offset.toString());
-    if (params?.action) query.set('action', params.action);
-    if (params?.userId) query.set('userId', params.userId);
-    
-    return this.request(`/admin/audit-logs?${query}`);
-  }
 
   // Settings endpoints
   async changePassword(currentPassword: string, newPassword: string) {
@@ -623,31 +609,191 @@ class ApiClient {
     return this.request(`/webhooks/${webhookId}/logs${query}`);
   }
 
+  // Advanced webhook features
+  async getWebhookStats(webhookId: string) {
+    return this.request(`/webhooks/${webhookId}/stats`);
+  }
+
+  async triggerWebhookEvent(eventType: string, eventData?: any) {
+    return this.request('/webhooks/trigger', {
+      method: 'POST',
+      body: JSON.stringify({ eventType, eventData })
+    });
+  }
+
+  async getSupportedWebhookEvents() {
+    return this.request('/webhooks/events');
+  }
+
+  async getZapierSamples() {
+    return this.request('/webhooks/zapier/samples');
+  }
+
   // Analytics API methods
-  async getAnalytics(params?: { timeRange?: string }) {
+  async getAnalytics(params?: { timeRange?: string; filters?: string }) {
     const query = params ? '?' + new URLSearchParams(params as any).toString() : '';
-    return this.request(`/admin/analytics${query}`);
+    return this.request(`/analytics/dashboard${query}`);
   }
 
   async getSystemHealth() {
-    return this.request('/admin/system-health');
-  }
-
-  async getUsageStatistics(timeRange = '7d') {
-    return this.request(`/admin/usage-stats?timeRange=${timeRange}`);
-  }
-
-  async getPerformanceMetrics(timeRange = '24h') {
-    return this.request(`/admin/performance-metrics?timeRange=${timeRange}`);
-  }
-
-  async getErrorAnalytics(timeRange = '7d') {
-    return this.request(`/admin/error-analytics?timeRange=${timeRange}`);
+    return this.request('/analytics/health');
   }
 
   async getActivityFeed(params?: { limit?: number; offset?: number }) {
     const query = params ? '?' + new URLSearchParams(params as any).toString() : '';
     return this.request(`/admin/activity-feed${query}`);
+  }
+
+  // Real-time monitoring
+  async getRealTimeMetrics() {
+    return this.request('/analytics/realtime');
+  }
+
+  // Performance analytics
+  async getPerformanceMetrics(params?: { timeRange?: string; includeDetails?: boolean }) {
+    const query = params ? '?' + new URLSearchParams(params as any).toString() : '';
+    return this.request(`/analytics/performance${query}`);
+  }
+
+  // Error tracking
+  async getErrorAnalytics(params?: { timeRange?: string; level?: string; limit?: number }) {
+    const query = params ? '?' + new URLSearchParams(params as any).toString() : '';
+    return this.request(`/analytics/errors${query}`);
+  }
+
+  // User analytics
+  async getUserAnalytics(params?: { timeRange?: string; includeInactive?: boolean }) {
+    const query = params ? '?' + new URLSearchParams(params as any).toString() : '';
+    return this.request(`/analytics/users${query}`);
+  }
+
+  // API usage statistics
+  async getAPIUsageStats(params?: { timeRange?: string; endpoint?: string; method?: string }) {
+    const query = params ? '?' + new URLSearchParams(params as any).toString() : '';
+    return this.request(`/analytics/api-usage${query}`);
+  }
+
+  // Content statistics
+  async getContentStats(params?: { timeRange?: string; type?: string }) {
+    const query = params ? '?' + new URLSearchParams(params as any).toString() : '';
+    return this.request(`/analytics/content${query}`);
+  }
+
+  // Alerts management
+  async getAlerts(params?: { status?: string; level?: string; limit?: number }) {
+    const query = params ? '?' + new URLSearchParams(params as any).toString() : '';
+    return this.request(`/analytics/alerts${query}`);
+  }
+
+  async acknowledgeAlert(alertId: string) {
+    return this.request(`/analytics/alerts/${alertId}/acknowledge`, {
+      method: 'POST'
+    });
+  }
+
+  async resolveAlert(alertId: string) {
+    return this.request(`/analytics/alerts/${alertId}/resolve`, {
+      method: 'POST'
+    });
+  }
+
+  // Custom event tracking
+  async trackEvent(action: string, metadata?: Record<string, any>) {
+    return this.request('/analytics/track', {
+      method: 'POST',
+      body: JSON.stringify({ action, metadata })
+    });
+  }
+
+  // Export analytics data
+  async exportAnalytics(params?: { timeRange?: string; format?: string; type?: string }) {
+    const query = params ? '?' + new URLSearchParams(params as any).toString() : '';
+    return this.request(`/analytics/export${query}`);
+  }
+
+  // Audit and Security API methods
+  async getAuditLogs(params?: { 
+    limit?: number; 
+    offset?: number; 
+    userId?: string; 
+    action?: string; 
+    severity?: string; 
+    startDate?: string; 
+    endDate?: string; 
+    ipAddress?: string; 
+  }) {
+    const query = params ? '?' + new URLSearchParams(params as any).toString() : '';
+    return this.request(`/audit/logs${query}`);
+  }
+
+  async getAuditStats(params?: { timeframe?: string }) {
+    const query = params ? '?' + new URLSearchParams(params as any).toString() : '';
+    return this.request(`/audit/stats${query}`);
+  }
+
+  async getSecurityEvents(params?: { limit?: number; userId?: string }) {
+    const query = params ? '?' + new URLSearchParams(params as any).toString() : '';
+    return this.request(`/audit/security-events${query}`);
+  }
+
+  async getFailedLogins(params?: { timeframe?: string; limit?: number }) {
+    const query = params ? '?' + new URLSearchParams(params as any).toString() : '';
+    return this.request(`/audit/failed-logins${query}`);
+  }
+
+  async getSuspiciousActivity(params?: { timeframe?: string }) {
+    const query = params ? '?' + new URLSearchParams(params as any).toString() : '';
+    return this.request(`/audit/suspicious-activity${query}`);
+  }
+
+  async getAuditSummary(params?: { timeframe?: string }) {
+    const query = params ? '?' + new URLSearchParams(params as any).toString() : '';
+    return this.request(`/audit/summary${query}`);
+  }
+
+  // User invitation API methods
+  async inviteUser(invitation: { email: string; role: string; message?: string }) {
+    return this.request('/admin/invite', {
+      method: 'POST',
+      body: JSON.stringify(invitation)
+    });
+  }
+
+  async getPendingInvitations() {
+    return this.request('/admin/invitations');
+  }
+
+  async cancelInvitation(invitationId: string) {
+    return this.request(`/admin/invitations/${invitationId}`, {
+      method: 'DELETE'
+    });
+  }
+
+  // Database health and optimization API methods
+  async getDatabaseHealth() {
+    return this.request('/database/health');
+  }
+
+  async getDatabaseMetrics() {
+    return this.request('/database/metrics');
+  }
+
+  async getDatabaseSlowQueries() {
+    return this.request('/database/slow-queries');
+  }
+
+  async getDatabaseOptimization() {
+    return this.request('/database/optimization');
+  }
+
+  async optimizeDatabase() {
+    return this.request('/database/optimize', {
+      method: 'POST'
+    });
+  }
+
+  async getDatabasePoolStatus() {
+    return this.request('/database/pool/status');
   }
 
   // Bot Management API methods
@@ -797,6 +943,251 @@ class ApiClient {
 
   async getSecretsHealth() {
     return this.request('/secrets/health');
+  }
+
+  // DLP API methods
+  async scanContent(content: string, context?: any) {
+    return this.request('/dlp/scan', {
+      method: 'POST',
+      body: JSON.stringify({ content, context })
+    });
+  }
+
+  async getDLPPolicies() {
+    return this.request('/dlp/policies');
+  }
+
+  async createDLPPolicy(policy: any) {
+    return this.request('/dlp/policies', {
+      method: 'POST',
+      body: JSON.stringify(policy)
+    });
+  }
+
+  async updateDLPPolicy(policyId: string, updates: any) {
+    return this.request(`/dlp/policies/${policyId}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates)
+    });
+  }
+
+  async getDLPViolations(filters?: any) {
+    const params = new URLSearchParams();
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          params.append(key, String(value));
+        }
+      });
+    }
+    const query = params.toString();
+    return this.request(`/dlp/violations${query ? '?' + query : ''}`);
+  }
+
+  async resolveDLPViolation(violationId: string, resolution: string, notes?: string) {
+    return this.request(`/dlp/violations/${violationId}/resolve`, {
+      method: 'POST',
+      body: JSON.stringify({ resolution, notes })
+    });
+  }
+
+  async getQuarantinedContent() {
+    return this.request('/dlp/quarantine');
+  }
+
+  async reviewQuarantinedContent(quarantineId: string, decision: string, notes?: string) {
+    return this.request(`/dlp/quarantine/${quarantineId}/review`, {
+      method: 'POST',
+      body: JSON.stringify({ decision, notes })
+    });
+  }
+
+  async getDLPStatistics() {
+    return this.request('/dlp/statistics');
+  }
+
+  async exportDLPCompliance(options?: any) {
+    const params = new URLSearchParams();
+    if (options) {
+      Object.entries(options).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          params.append(key, String(value));
+        }
+      });
+    }
+    const query = params.toString();
+    return this.request(`/dlp/compliance/export${query ? '?' + query : ''}`);
+  }
+
+  async testDLPPatterns(content: string, patterns?: string[]) {
+    return this.request('/dlp/test', {
+      method: 'POST',
+      body: JSON.stringify({ content, patterns })
+    });
+  }
+
+  // Backup API methods
+  async createBackup(options?: any) {
+    return this.request('/backup/create', {
+      method: 'POST',
+      body: JSON.stringify(options || {})
+    });
+  }
+
+  async getBackupHistory(filters?: any) {
+    const params = new URLSearchParams();
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          params.append(key, String(value));
+        }
+      });
+    }
+    const query = params.toString();
+    return this.request(`/backup/history${query ? '?' + query : ''}`);
+  }
+
+  async restoreBackup(backupId: string, options?: any) {
+    return this.request(`/backup/${backupId}/restore`, {
+      method: 'POST',
+      body: JSON.stringify(options || {})
+    });
+  }
+
+  async verifyBackup(backupId: string) {
+    return this.request(`/backup/${backupId}/verify`);
+  }
+
+  async downloadBackup(backupId: string) {
+    // Return the URL for direct download
+    return `/api/backup/${backupId}/download`;
+  }
+
+  async getBackupStatistics() {
+    return this.request('/backup/statistics');
+  }
+
+  async getBackupSchedule() {
+    return this.request('/backup/schedule');
+  }
+
+  async updateBackupSchedule(schedule: any) {
+    return this.request('/backup/schedule', {
+      method: 'PUT',
+      body: JSON.stringify(schedule)
+    });
+  }
+
+  async cleanupBackups() {
+    return this.request('/backup/cleanup', {
+      method: 'POST'
+    });
+  }
+
+
+  // Advanced Search API methods
+  async search(query: string, options?: {
+    contentTypes?: string[];
+    workspaceId?: string;
+    limit?: number;
+    offset?: number;
+    sortBy?: 'relevance' | 'date';
+    includeHighlights?: boolean;
+    dateStart?: string;
+    dateEnd?: string;
+    author?: string;
+  }) {
+    const params = new URLSearchParams();
+    params.append('q', query);
+    
+    if (options) {
+      if (options.contentTypes) params.append('contentTypes', options.contentTypes.join(','));
+      if (options.workspaceId) params.append('workspaceId', options.workspaceId);
+      if (options.limit) params.append('limit', options.limit.toString());
+      if (options.offset) params.append('offset', options.offset.toString());
+      if (options.sortBy) params.append('sortBy', options.sortBy);
+      if (options.includeHighlights !== undefined) params.append('includeHighlights', options.includeHighlights.toString());
+      if (options.dateStart) params.append('dateStart', options.dateStart);
+      if (options.dateEnd) params.append('dateEnd', options.dateEnd);
+      if (options.author) params.append('author', options.author);
+    }
+
+    return this.request(`/search?${params.toString()}`);
+  }
+
+  async getSearchSuggestions(query: string, limit = 10) {
+    const params = new URLSearchParams();
+    params.append('q', query);
+    params.append('limit', limit.toString());
+    
+    return this.request(`/search/suggestions?${params.toString()}`);
+  }
+
+  async getSearchAnalytics() {
+    return this.request('/search/analytics');
+  }
+
+  async logSearchClick(searchId: string, resultId: string, resultType: string) {
+    return this.request('/search/click', {
+      method: 'POST',
+      body: JSON.stringify({ searchId, resultId, resultType })
+    });
+  }
+
+  async getSearchFacets(workspaceId?: string) {
+    const params = workspaceId ? `?workspaceId=${workspaceId}` : '';
+    return this.request(`/search/facets${params}`);
+  }
+
+  async exportSearchAnalytics(format: 'json' | 'csv' = 'json', timeRange: '7d' | '30d' | '90d' | 'all' = '30d') {
+    const params = new URLSearchParams();
+    params.append('format', format);
+    params.append('timeRange', timeRange);
+    
+    return this.request(`/search/export?${params.toString()}`);
+  }
+
+  // AI-Powered Features API methods
+  async getAISuggestions(context: {
+    currentContent: string;
+    cursorPosition?: number;
+    title?: string;
+    noteId?: string;
+    workspaceId?: string;
+  }) {
+    return this.request('/ai/suggestions', {
+      method: 'POST',
+      body: JSON.stringify(context)
+    });
+  }
+
+  async generateSmartTags(content: string, title?: string) {
+    return this.request('/ai/tags', {
+      method: 'POST',
+      body: JSON.stringify({ content, title })
+    });
+  }
+
+  async analyzeContent(content: string) {
+    return this.request('/ai/analyze', {
+      method: 'POST',
+      body: JSON.stringify({ content })
+    });
+  }
+
+  async getAITemplates(type?: string) {
+    const params = type ? `?type=${encodeURIComponent(type)}` : '';
+    return this.request(`/ai/templates${params}`);
+  }
+
+  async getAIStatistics() {
+    return this.request('/ai/statistics');
+  }
+
+  async cleanupAICaches() {
+    return this.request('/ai/cleanup', {
+      method: 'POST'
+    });
   }
 }
 

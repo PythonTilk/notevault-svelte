@@ -497,7 +497,7 @@
           <div>
             <label class="block text-sm font-medium text-dark-300 mb-2">Allowed Origins (one per line)</label>
             <textarea
-              bind:value={settings.security.allowedOrigins.join('\n')}
+              value={settings.security.allowedOrigins.join('\n')}
               on:input={(e) => {
                 settings.security.allowedOrigins = e.target.value.split('\n').filter(o => o.trim());
                 handleInputChange();

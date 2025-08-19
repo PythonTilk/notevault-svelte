@@ -21,8 +21,10 @@
   let isTesting = false;
   let message = '';
   let messageType: 'success' | 'error' = 'success';
+  let availableEvents = [];
+  let eventsLoading = true;
 
-  const availableEvents = [
+  const defaultEvents = [
     { type: 'workspace.created', description: 'Workspace created' },
     { type: 'workspace.updated', description: 'Workspace updated' },
     { type: 'workspace.deleted', description: 'Workspace deleted' },
@@ -42,6 +44,27 @@
     { type: 'comment.updated', description: 'Comment updated' },
     { type: 'comment.deleted', description: 'Comment deleted' }
   ];
+
+  onMount(async () => {
+    await loadSupportedEvents();
+  });
+
+  async function loadSupportedEvents() {
+    try {
+      eventsLoading = true;
+      const response = await api.getSupportedWebhookEvents();
+      if (response?.events) {
+        availableEvents = response.events;
+      } else {
+        availableEvents = defaultEvents;
+      }
+    } catch (error) {
+      console.error('Failed to load supported events:', error);
+      availableEvents = defaultEvents;
+    } finally {
+      eventsLoading = false;
+    }
+  }
 
   function toggleEvent(eventType: string) {
     if (selectedEvents.includes(eventType)) {
@@ -271,22 +294,29 @@
           </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {#each availableEvents as event}
-            <label class="flex items-start space-x-3 p-3 rounded-lg border border-dark-700 hover:border-dark-600 cursor-pointer {selectedEvents.includes(event.type) ? 'bg-primary-500/10 border-primary-400' : ''}">
-              <input
-                type="checkbox"
-                checked={selectedEvents.includes(event.type)}
-                on:change={() => toggleEvent(event.type)}
-                class="mt-1 w-4 h-4 text-primary-600 bg-dark-700 border-dark-600 rounded focus:ring-primary-500 focus:ring-2"
-              />
-              <div class="flex-1">
-                <div class="text-sm font-medium text-white">{event.description}</div>
-                <div class="text-xs text-dark-400 font-mono">{event.type}</div>
-              </div>
-            </label>
-          {/each}
-        </div>
+        {#if eventsLoading}
+          <div class="flex items-center justify-center py-8">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-400"></div>
+            <span class="ml-3 text-white">Loading events...</span>
+          </div>
+        {:else}
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {#each availableEvents as event}
+              <label class="flex items-start space-x-3 p-3 rounded-lg border border-dark-700 hover:border-dark-600 cursor-pointer {selectedEvents.includes(event.type) ? 'bg-primary-500/10 border-primary-400' : ''}">
+                <input
+                  type="checkbox"
+                  checked={selectedEvents.includes(event.type)}
+                  on:change={() => toggleEvent(event.type)}
+                  class="mt-1 w-4 h-4 text-primary-600 bg-dark-700 border-dark-600 rounded focus:ring-primary-500 focus:ring-2"
+                />
+                <div class="flex-1">
+                  <div class="text-sm font-medium text-white">{event.description}</div>
+                  <div class="text-xs text-dark-400 font-mono">{event.type}</div>
+                </div>
+              </label>
+            {/each}
+          </div>
+        {/if}
 
         <div class="mt-4 text-sm text-dark-400">
           Selected: {selectedEvents.length} event{selectedEvents.length !== 1 ? 's' : ''}
