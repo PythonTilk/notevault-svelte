@@ -4,11 +4,15 @@
   import { chatMessages, onlineUsers, chatStore, isConnected } from '$lib/stores/chat';
   import { currentUser } from '$lib/stores/auth';
   import ChatMessage from '$lib/components/ChatMessage.svelte';
+  import ChatMembersModal from '$lib/components/ChatMembersModal.svelte';
+  import ChatSettingsModal from '$lib/components/ChatSettingsModal.svelte';
 
   let messageInput = '';
   let messagesContainer: HTMLDivElement;
   let showEmojiPicker = false;
   let replyingTo: any = null;
+  let showMembersModal = false;
+  let showSettingsModal = false;
 
   const emojis = ['😀', '😂', '😍', '🤔', '👍', '👎', '❤️', '🎉', '🔥', '💯'];
 
@@ -80,6 +84,33 @@
     textarea.style.height = 'auto';
     textarea.style.height = Math.min(textarea.scrollHeight, 128) + 'px'; // Max height of 128px
   }
+
+  function handleModerationAction(event: CustomEvent<{ userId: string; action: string }>) {
+    const { userId, action } = event.detail;
+    console.log(`Moderation action: ${action} on user ${userId}`);
+    
+    switch (action) {
+      case 'message':
+        // Implement direct messaging
+        break;
+      case 'mute':
+        chatStore.moderateUser(userId, 'mute');
+        break;
+      case 'kick':
+        chatStore.moderateUser(userId, 'kick');
+        break;
+      case 'ban':
+        chatStore.moderateUser(userId, 'ban');
+        break;
+    }
+  }
+
+  function handleSettingsSave(event: CustomEvent<{ settings: any }>) {
+    const settings = event.detail.settings;
+    console.log('Saving chat settings:', settings);
+    // Implement settings persistence
+    localStorage.setItem('chat-settings', JSON.stringify(settings));
+  }
 </script>
 
 <svelte:head>
@@ -101,11 +132,17 @@
     </div>
     
     <div class="flex items-center space-x-3">
-      <button class="btn-ghost">
+      <button 
+        class="btn-ghost"
+        on:click={() => showMembersModal = true}
+      >
         <Users class="w-4 h-4 mr-2" />
         Members
       </button>
-      <button class="btn-ghost">
+      <button 
+        class="btn-ghost"
+        on:click={() => showSettingsModal = true}
+      >
         <Settings class="w-4 h-4" />
       </button>
     </div>
@@ -254,3 +291,17 @@
     </div>
   </div>
 </div>
+
+<!-- Chat Members Modal -->
+<ChatMembersModal 
+  bind:isOpen={showMembersModal}
+  on:close={() => showMembersModal = false}
+  on:moderate={handleModerationAction}
+/>
+
+<!-- Chat Settings Modal -->
+<ChatSettingsModal 
+  bind:isOpen={showSettingsModal}
+  on:close={() => showSettingsModal = false}
+  on:save={handleSettingsSave}
+/>

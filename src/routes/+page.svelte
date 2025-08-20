@@ -20,9 +20,10 @@
     { label: 'Messages Today', value: '0', icon: MessageSquare, color: 'text-purple-400' }
   ];
   let isLoadingStats = true;
+  let isLoadingWorkspaces = true;
 
   onMount(async () => {
-    workspaceStore.loadWorkspaces();
+    loadWorkspacesWithLoading();
     chatStore.connect();
     
     // Load real data
@@ -95,6 +96,17 @@
       announcements = [];
     } finally {
       isLoadingStats = false;
+    }
+  }
+
+  async function loadWorkspacesWithLoading() {
+    try {
+      isLoadingWorkspaces = true;
+      await workspaceStore.loadWorkspaces();
+    } catch (error) {
+      console.error('Failed to load workspaces:', error);
+    } finally {
+      isLoadingWorkspaces = false;
     }
   }
 
@@ -193,7 +205,13 @@
           </div>
         </div>
 
-        {#if $workspaces.length === 0}
+{#if isLoadingWorkspaces}
+          <div class="card text-center py-12">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4"></div>
+            <h3 class="text-lg font-medium text-white mb-2">Loading workspaces...</h3>
+            <p class="text-dark-400">Please wait while we fetch your workspaces</p>
+          </div>
+        {:else if $workspaces.length === 0}
           <div class="card text-center py-12">
             <Grid class="w-12 h-12 text-dark-600 mx-auto mb-4" />
             <h3 class="text-lg font-medium text-white mb-2">No workspaces yet</h3>
@@ -207,8 +225,8 @@
             </button>
           </div>
         {:else}
-          <div class={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 gap-6' : 'space-y-4'}>
-            {#each $workspaces as workspace}
+          <div class={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
+            {#each $workspaces as workspace (workspace.id)}
               <WorkspaceCard 
                 {workspace} 
                 onClick={() => handleWorkspaceClick(workspace)}

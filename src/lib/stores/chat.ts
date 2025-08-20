@@ -585,5 +585,53 @@ export const chatStore = {
     if (socket?.connected) {
       socket.emit('leave-workspace', workspaceId);
     }
+  },
+
+  // Moderation functions
+  moderateUser: (userId: string, action: 'mute' | 'kick' | 'ban') => {
+    if (socket?.connected) {
+      socket.emit('moderate-user', { userId, action });
+      console.log(`Moderation action: ${action} applied to user ${userId}`);
+    }
+  },
+
+  muteUser: (userId: string, duration?: number) => {
+    if (socket?.connected) {
+      socket.emit('mute-user', { userId, duration });
+    }
+  },
+
+  unmuteUser: (userId: string) => {
+    if (socket?.connected) {
+      socket.emit('unmute-user', { userId });
+    }
+  },
+
+  kickUser: (userId: string, reason?: string) => {
+    if (socket?.connected) {
+      socket.emit('kick-user', { userId, reason });
+    }
+  },
+
+  banUser: (userId: string, reason?: string) => {
+    if (socket?.connected) {
+      socket.emit('ban-user', { userId, reason });
+    }
+  },
+
+  unbanUser: (userId: string) => {
+    if (socket?.connected) {
+      socket.emit('unban-user', { userId });
+    }
+  },
+
+  deleteMessage: (messageId: string) => {
+    if (socket?.connected) {
+      socket.emit('delete-message', { messageId });
+      // Remove message from local store immediately
+      chatMessages.update(messages => 
+        messages.filter(msg => msg.id !== messageId)
+      );
+    }
   }
 };

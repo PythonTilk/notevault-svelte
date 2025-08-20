@@ -308,16 +308,6 @@ class ApiClient {
     return this.request(`/admin/users/${userId}`, { method: 'DELETE' });
   }
 
-  async getAdminWorkspaces(params?: {
-    limit?: number;
-    offset?: number;
-  }) {
-    const query = new URLSearchParams();
-    if (params?.limit) query.set('limit', params.limit.toString());
-    if (params?.offset) query.set('offset', params.offset.toString());
-    
-    return this.request(`/admin/workspaces?${query}`);
-  }
 
   async deleteWorkspaceAsAdmin(workspaceId: string) {
     return this.request(`/admin/workspaces/${workspaceId}`, { method: 'DELETE' });

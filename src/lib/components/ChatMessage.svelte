@@ -89,9 +89,12 @@
 <div class="flex space-x-3 p-4 hover:bg-dark-800/50 transition-colors group">
   <!-- Avatar -->
   <img
-    src={message.author.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${message.author.username}`}
-    alt={message.author.displayName || message.author.username}
+    src={message.author?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${message.author?.username || 'default'}`}
+    alt={message.author?.displayName || message.author?.username || 'User'}
     class="w-10 h-10 rounded-full flex-shrink-0"
+    on:error={(e) => {
+      e.currentTarget.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=default`;
+    }}
   />
 
   <!-- Content -->
@@ -99,11 +102,11 @@
     <!-- Header -->
     <div class="flex items-center space-x-2 mb-1">
       <span class="font-medium text-white">
-        {message.author.displayName}
+        {message.author?.displayName || message.author?.username || 'Unknown User'}
       </span>
       <svelte:component 
-        this={getRoleIcon(message.author.role)} 
-        class="w-4 h-4 {getRoleColor(message.author.role)}" 
+        this={getRoleIcon(message.author?.role || 'user')} 
+        class="w-4 h-4 {getRoleColor(message.author?.role || 'user')}" 
       />
       <span class="text-xs text-dark-400">
         {formatTime(message.createdAt)}
