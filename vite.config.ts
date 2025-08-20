@@ -4,9 +4,11 @@ import { defineConfig } from 'vite';
 export default defineConfig({
 	plugins: [sveltekit()],
 	server: {
+// prettier-ignore
 		host: '0.0.0.0',
-		port: 51975,
-		cors: true
+		port: 12000,
+		cors: true,
+		allowedHosts: true
 	},
 	build: {
 		// Enable minification and compression
