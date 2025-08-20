@@ -157,86 +157,132 @@ class DatabasePool extends EventEmitter {
   }
 
   async createIndexes(connection) {
+    // Helper function to check if table exists
+    const tableExists = async (tableName) => {
+      try {
+        const result = await connection.get(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+          [tableName]
+        );
+        return !!result;
+      } catch (error) {
+        return false;
+      }
+    };
+
     // Create performance indexes for common queries
-    const indexes = [
-      // User-related indexes
-      'CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)',
-      'CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)',
-      'CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at)',
-      'CREATE INDEX IF NOT EXISTS idx_users_last_active ON users(last_active)',
+    const indexDefinitions = [
+      // Core indexes (always present)
+      { table: 'users', indexes: [
+        'CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)',
+        'CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)',
+        'CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at)',
+        'CREATE INDEX IF NOT EXISTS idx_users_last_active ON users(last_active)'
+      ]},
       
-      // Workspace indexes
-      'CREATE INDEX IF NOT EXISTS idx_workspaces_owner_id ON workspaces(owner_id)',
-      'CREATE INDEX IF NOT EXISTS idx_workspaces_created_at ON workspaces(created_at)',
-      'CREATE INDEX IF NOT EXISTS idx_workspace_members_workspace_id ON workspace_members(workspace_id)',
-      'CREATE INDEX IF NOT EXISTS idx_workspace_members_user_id ON workspace_members(user_id)',
+      { table: 'workspaces', indexes: [
+        'CREATE INDEX IF NOT EXISTS idx_workspaces_owner_id ON workspaces(owner_id)',
+        'CREATE INDEX IF NOT EXISTS idx_workspaces_created_at ON workspaces(created_at)'
+      ]},
       
-      // Note indexes
-      'CREATE INDEX IF NOT EXISTS idx_notes_workspace_id ON notes(workspace_id)',
-      'CREATE INDEX IF NOT EXISTS idx_notes_author_id ON notes(author_id)',
-      'CREATE INDEX IF NOT EXISTS idx_notes_created_at ON notes(created_at)',
-      'CREATE INDEX IF NOT EXISTS idx_notes_updated_at ON notes(updated_at)',
-      'CREATE INDEX IF NOT EXISTS idx_notes_title ON notes(title)',
+      { table: 'workspace_members', indexes: [
+        'CREATE INDEX IF NOT EXISTS idx_workspace_members_workspace_id ON workspace_members(workspace_id)',
+        'CREATE INDEX IF NOT EXISTS idx_workspace_members_user_id ON workspace_members(user_id)'
+      ]},
       
-      // File indexes
-      'CREATE INDEX IF NOT EXISTS idx_files_workspace_id ON files(workspace_id)',
-      'CREATE INDEX IF NOT EXISTS idx_files_uploaded_by ON files(uploaded_by)',
-      'CREATE INDEX IF NOT EXISTS idx_files_created_at ON files(created_at)',
-      'CREATE INDEX IF NOT EXISTS idx_files_filename ON files(filename)',
+      { table: 'notes', indexes: [
+        'CREATE INDEX IF NOT EXISTS idx_notes_workspace_id ON notes(workspace_id)',
+        'CREATE INDEX IF NOT EXISTS idx_notes_author_id ON notes(author_id)',
+        'CREATE INDEX IF NOT EXISTS idx_notes_created_at ON notes(created_at)',
+        'CREATE INDEX IF NOT EXISTS idx_notes_updated_at ON notes(updated_at)',
+        'CREATE INDEX IF NOT EXISTS idx_notes_title ON notes(title)'
+      ]},
       
-      // API Keys indexes
-      'CREATE INDEX IF NOT EXISTS idx_api_keys_user_id ON api_keys(user_id)',
-      'CREATE INDEX IF NOT EXISTS idx_api_keys_key_hash ON api_keys(key_hash)',
-      'CREATE INDEX IF NOT EXISTS idx_api_keys_created_at ON api_keys(created_at)',
-      'CREATE INDEX IF NOT EXISTS idx_api_keys_active ON api_keys(active)',
+      { table: 'files', indexes: [
+        'CREATE INDEX IF NOT EXISTS idx_files_workspace_id ON files(workspace_id)',
+        'CREATE INDEX IF NOT EXISTS idx_files_uploaded_by ON files(uploaded_by)',
+        'CREATE INDEX IF NOT EXISTS idx_files_created_at ON files(created_at)',
+        'CREATE INDEX IF NOT EXISTS idx_files_filename ON files(filename)'
+      ]},
       
-      // Audit logs indexes
-      'CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id)',
-      'CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action)',
-      'CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at)',
-      'CREATE INDEX IF NOT EXISTS idx_audit_logs_ip_address ON audit_logs(ip_address)',
+      { table: 'api_keys', indexes: [
+        'CREATE INDEX IF NOT EXISTS idx_api_keys_user_id ON api_keys(user_id)',
+        'CREATE INDEX IF NOT EXISTS idx_api_keys_key_hash ON api_keys(key_hash)',
+        'CREATE INDEX IF NOT EXISTS idx_api_keys_created_at ON api_keys(created_at)',
+        'CREATE INDEX IF NOT EXISTS idx_api_keys_active ON api_keys(active)'
+      ]},
       
-      // Secrets indexes
-      'CREATE INDEX IF NOT EXISTS idx_secrets_name ON secrets(name)',
-      'CREATE INDEX IF NOT EXISTS idx_secrets_active ON secrets(active)',
-      'CREATE INDEX IF NOT EXISTS idx_secrets_created_at ON secrets(created_at)',
+      { table: 'audit_logs', indexes: [
+        'CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id)',
+        'CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action)',
+        'CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at)',
+        'CREATE INDEX IF NOT EXISTS idx_audit_logs_ip_address ON audit_logs(ip_address)'
+      ]},
       
-      // Webhooks indexes
-      'CREATE INDEX IF NOT EXISTS idx_webhooks_user_id ON webhooks(user_id)',
-      'CREATE INDEX IF NOT EXISTS idx_webhooks_active ON webhooks(active)',
-      'CREATE INDEX IF NOT EXISTS idx_webhooks_created_at ON webhooks(created_at)',
+      { table: 'secrets', indexes: [
+        'CREATE INDEX IF NOT EXISTS idx_secrets_name ON secrets(name)',
+        'CREATE INDEX IF NOT EXISTS idx_secrets_active ON secrets(active)',
+        'CREATE INDEX IF NOT EXISTS idx_secrets_created_at ON secrets(created_at)'
+      ]},
       
-      // Bot indexes
-      'CREATE INDEX IF NOT EXISTS idx_bots_user_id ON bots(user_id)',
-      'CREATE INDEX IF NOT EXISTS idx_bots_platform ON bots(platform)',
-      'CREATE INDEX IF NOT EXISTS idx_bots_enabled ON bots(enabled)',
+      // Optional indexes (only if tables exist)
+      { table: 'webhooks', indexes: [
+        'CREATE INDEX IF NOT EXISTS idx_webhooks_user_id ON webhooks(user_id)',
+        'CREATE INDEX IF NOT EXISTS idx_webhooks_active ON webhooks(active)',
+        'CREATE INDEX IF NOT EXISTS idx_webhooks_created_at ON webhooks(created_at)'
+      ]},
       
-      // Calendar indexes
-      'CREATE INDEX IF NOT EXISTS idx_calendar_events_user_id ON calendar_events(user_id)',
-      'CREATE INDEX IF NOT EXISTS idx_calendar_events_start_time ON calendar_events(start_time)',
-      'CREATE INDEX IF NOT EXISTS idx_calendar_events_end_time ON calendar_events(end_time)',
+      { table: 'bots', indexes: [
+        'CREATE INDEX IF NOT EXISTS idx_bots_user_id ON bots(user_id)',
+        'CREATE INDEX IF NOT EXISTS idx_bots_platform ON bots(platform)',
+        'CREATE INDEX IF NOT EXISTS idx_bots_enabled ON bots(enabled)'
+      ]},
       
-      // User invitations indexes
-      'CREATE INDEX IF NOT EXISTS idx_user_invitations_email ON user_invitations(email)',
-      'CREATE INDEX IF NOT EXISTS idx_user_invitations_token ON user_invitations(token)',
-      'CREATE INDEX IF NOT EXISTS idx_user_invitations_status ON user_invitations(status)',
-      'CREATE INDEX IF NOT EXISTS idx_user_invitations_expires_at ON user_invitations(expires_at)',
+      { table: 'calendar_events', indexes: [
+        'CREATE INDEX IF NOT EXISTS idx_calendar_events_user_id ON calendar_events(user_id)',
+        'CREATE INDEX IF NOT EXISTS idx_calendar_events_start_time ON calendar_events(start_time)',
+        'CREATE INDEX IF NOT EXISTS idx_calendar_events_end_time ON calendar_events(end_time)'
+      ]},
       
-      // Encryption keys indexes
-      'CREATE INDEX IF NOT EXISTS idx_encryption_keys_active ON encryption_keys(active)',
-      'CREATE INDEX IF NOT EXISTS idx_encryption_keys_created_at ON encryption_keys(created_at)',
-      'CREATE INDEX IF NOT EXISTS idx_encryption_keys_key_version ON encryption_keys(key_version)'
+      { table: 'user_invitations', indexes: [
+        'CREATE INDEX IF NOT EXISTS idx_user_invitations_email ON user_invitations(email)',
+        'CREATE INDEX IF NOT EXISTS idx_user_invitations_token ON user_invitations(token)',
+        'CREATE INDEX IF NOT EXISTS idx_user_invitations_status ON user_invitations(status)',
+        'CREATE INDEX IF NOT EXISTS idx_user_invitations_expires_at ON user_invitations(expires_at)'
+      ]},
+      
+      { table: 'encryption_keys', indexes: [
+        'CREATE INDEX IF NOT EXISTS idx_encryption_keys_active ON encryption_keys(active)',
+        'CREATE INDEX IF NOT EXISTS idx_encryption_keys_created_at ON encryption_keys(created_at)',
+        'CREATE INDEX IF NOT EXISTS idx_encryption_keys_key_version ON encryption_keys(key_version)'
+      ]}
     ];
 
-    for (const indexSql of indexes) {
-      try {
-        await connection.exec(indexSql);
-      } catch (error) {
-        console.warn('Index creation warning:', error.message);
+    let createdIndexes = 0;
+    let skippedIndexes = 0;
+
+    for (const { table, indexes } of indexDefinitions) {
+      const exists = await tableExists(table);
+      
+      if (exists) {
+        for (const indexSql of indexes) {
+          try {
+            await connection.exec(indexSql);
+            createdIndexes++;
+          } catch (error) {
+            console.warn(`Index creation warning for ${table}:`, error.message);
+          }
+        }
+      } else {
+        skippedIndexes += indexes.length;
+        console.log(`Skipping indexes for non-existent table: ${table}`);
       }
     }
 
-    console.log(`Created ${indexes.length} database indexes for performance optimization`);
+    console.log(`Created ${createdIndexes} database indexes for performance optimization`);
+    if (skippedIndexes > 0) {
+      console.log(`Skipped ${skippedIndexes} indexes for non-existent tables`);
+    }
   }
 
   async acquireConnection() {

@@ -75,6 +75,23 @@ export const workspaceStore = {
       workspaceNotes.set([]);
     }
   },
+
+  loadWorkspaceMembers: async (workspaceId: string) => {
+    try {
+      const membersData = await api.getWorkspaceMembers(workspaceId);
+      return membersData.map((member: any) => ({
+        userId: member.userId,
+        username: member.username,
+        displayName: member.displayName,
+        email: member.email,
+        role: member.role,
+        joinedAt: new Date(member.joinedAt)
+      }));
+    } catch (error) {
+      console.error('Failed to load workspace members:', error);
+      return [];
+    }
+  },
   
   createWorkspace: async (data: {
     name: string;

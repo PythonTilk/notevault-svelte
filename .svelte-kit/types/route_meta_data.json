@@ -13,8 +13,12 @@
 	"/calendar": [],
 	"/calendar/auth-callback": [],
 	"/chat": [],
+	"/collections": [],
 	"/files": [],
 	"/login": [],
+	"/notes/[id]/edit": [
+		"src/routes/notes/[id]/edit/+page.ts"
+	],
 	"/notifications": [],
 	"/register": [],
 	"/search": [],

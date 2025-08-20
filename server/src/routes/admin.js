@@ -3,6 +3,7 @@ import { body, validationResult } from 'express-validator';
 import { v4 as uuidv4 } from 'uuid';
 import db from '../config/database.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
+import notificationService from '../services/notificationService.js';
 
 const router = express.Router();
 
@@ -278,33 +279,61 @@ router.delete('/invitations/:id', (req, res) => {
 router.get('/workspaces', (req, res) => {
   const { limit = 50, offset = 0 } = req.query;
 
+  // First get workspaces with their owners and member counts
   const query = `
-    SELECT w.*, u.display_name as owner_name, COUNT(wm.user_id) as member_count
+    SELECT w.*, 
+           u.id as owner_user_id, u.username as owner_username, u.display_name as owner_display_name, u.avatar as owner_avatar,
+           COUNT(wm.user_id) as member_count
     FROM workspaces w
     JOIN users u ON w.owner_id = u.id
     LEFT JOIN workspace_members wm ON w.id = wm.workspace_id
-    GROUP BY w.id
+    GROUP BY w.id, u.id, u.username, u.display_name, u.avatar
     ORDER BY w.created_at DESC
     LIMIT ? OFFSET ?
   `;
 
   db.all(query, [parseInt(limit), parseInt(offset)], (err, workspaces) => {
     if (err) {
+      console.error('Database error loading workspaces:', err);
       return res.status(500).json({ error: 'Database error' });
     }
 
-    res.json(workspaces.map(workspace => ({
-      id: workspace.id,
-      name: workspace.name,
-      description: workspace.description,
-      color: workspace.color,
-      ownerId: workspace.owner_id,
-      ownerName: workspace.owner_name,
-      memberCount: workspace.member_count,
-      createdAt: workspace.created_at,
-      updatedAt: workspace.updated_at,
-      isPublic: workspace.is_public
-    })));
+    // Get note and file counts for each workspace
+    const workspacePromises = workspaces.map(workspace => {
+      return new Promise((resolve) => {
+        const countQueries = `
+          SELECT 
+            (SELECT COUNT(*) FROM notes WHERE workspace_id = ?) as note_count,
+            (SELECT COUNT(*) FROM files WHERE workspace_id = ?) as file_count
+        `;
+        
+        db.get(countQueries, [workspace.id, workspace.id], (err, counts) => {
+          resolve({
+            id: workspace.id,
+            name: workspace.name,
+            description: workspace.description,
+            color: workspace.color,
+            ownerId: workspace.owner_id,
+            owner: {
+              id: workspace.owner_user_id,
+              username: workspace.owner_username,
+              displayName: workspace.owner_display_name,
+              avatar: workspace.owner_avatar
+            },
+            memberCount: workspace.member_count || 0,
+            noteCount: counts?.note_count || 0,
+            fileCount: counts?.file_count || 0,
+            createdAt: workspace.created_at,
+            updatedAt: workspace.updated_at,
+            isPublic: workspace.is_public
+          });
+        });
+      });
+    });
+
+    Promise.all(workspacePromises).then(formattedWorkspaces => {
+      res.json(formattedWorkspaces);
+    });
   });
 });
 
@@ -379,6 +408,10 @@ router.post('/announcements', [
     if (err) {
       return res.status(500).json({ error: 'Failed to create announcement' });
     }
+
+    // Send notification to all users about the new announcement
+    notificationService.notifyAnnouncementCreated(announcementId, title, content, priority)
+      .catch(err => console.error('Failed to send announcement notifications:', err));
 
     res.status(201).json({
       id: announcementId,
@@ -524,6 +557,92 @@ router.get('/audit-logs', (req, res) => {
       userAgent: log.user_agent,
       createdAt: log.created_at
     })));
+  });
+});
+
+// Create demo data (for testing and development)
+router.post('/create-demo-data', (req, res) => {
+  // Check if demo data already exists
+  db.get('SELECT COUNT(*) as count FROM workspaces', (err, result) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error' });
+    }
+    
+    if (result.count > 0) {
+      return res.status(400).json({ error: 'Demo data already exists. Use reset-demo-data to recreate.' });
+    }
+    
+    // Get demo user ID
+    db.get('SELECT id FROM users WHERE username = ?', ['demo'], (err, demoUser) => {
+      if (err || !demoUser) {
+        return res.status(500).json({ error: 'Demo user not found' });
+      }
+      
+      const demoWorkspaceId = uuidv4();
+      const demoWorkspaceMemberId = uuidv4();
+      
+      // Create demo workspace
+      db.run(`
+        INSERT INTO workspaces (id, name, description, color, owner_id, is_public)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `, [demoWorkspaceId, 'Welcome to NoteVault', 'Your first workspace for getting started with collaborative notes', '#3b82f6', demoUser.id, true], function(err) {
+        if (err) {
+          console.error('Error creating demo workspace:', err);
+          return res.status(500).json({ error: 'Failed to create demo workspace' });
+        }
+        
+        // Add demo user as owner of the workspace
+        db.run(`
+          INSERT INTO workspace_members (id, workspace_id, user_id, role)
+          VALUES (?, ?, ?, ?)
+        `, [demoWorkspaceMemberId, demoWorkspaceId, demoUser.id, 'owner'], function(err) {
+          if (err) {
+            console.error('Error adding demo user to workspace:', err);
+            return res.status(500).json({ error: 'Failed to add demo user to workspace' });
+          }
+          
+          // Create demo notes
+          const note1Id = uuidv4();
+          const note2Id = uuidv4();
+          const note3Id = uuidv4();
+          
+          const notes = [
+            [note1Id, 'Welcome Note', 'Welcome to NoteVault! This is your first note. You can drag it around, edit it, and create more notes by clicking the + button.', 'text', demoWorkspaceId, demoUser.id, 100, 100, 300, 200, '#fbbf24', true],
+            [note2Id, 'Getting Started', 'Here are some tips:\\n• Click on any note to edit it\\n• Drag notes to move them around\\n• Use the Collections sidebar to organize notes\\n• Invite team members to collaborate', 'text', demoWorkspaceId, demoUser.id, 450, 150, 320, 220, '#10b981', true],
+            [note3Id, 'Code Example', '// Here\'s a JavaScript code example\\nfunction greetUser(name) {\\n  return `Hello, ${name}! Welcome to NoteVault.`;\\n}\\n\\nconst message = greetUser("Developer");\\nconsole.log(message);', 'code', demoWorkspaceId, demoUser.id, 200, 350, 350, 250, '#8b5cf6', true]
+          ];
+          
+          let notesCreated = 0;
+          const totalNotes = notes.length;
+          
+          notes.forEach(([id, title, content, type, workspaceId, authorId, x, y, width, height, color, isPublic]) => {
+            db.run(`
+              INSERT INTO notes (id, title, content, type, workspace_id, author_id, position_x, position_y, width, height, color, is_public)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `, [id, title, content, type, workspaceId, authorId, x, y, width, height, color, isPublic], function(err) {
+              if (err) {
+                console.error(`Error creating demo note ${id}:`, err);
+              } else {
+                console.log(`Demo note ${title} created`);
+              }
+              
+              notesCreated++;
+              if (notesCreated === totalNotes) {
+                res.json({
+                  success: true,
+                  message: 'Demo data created successfully',
+                  workspace: {
+                    id: demoWorkspaceId,
+                    name: 'Welcome to NoteVault',
+                    notesCreated: totalNotes
+                  }
+                });
+              }
+            });
+          });
+        });
+      });
+    });
   });
 });
 

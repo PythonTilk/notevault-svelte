@@ -3,6 +3,7 @@ import { body, validationResult } from 'express-validator';
 import { v4 as uuidv4 } from 'uuid';
 import db from '../config/database.js';
 import { authenticateToken, optionalAuth } from '../middleware/auth.js';
+import notificationService from '../services/notificationService.js';
 
 const router = express.Router();
 
@@ -147,6 +148,10 @@ router.post('/', authenticateToken, [
 
         db.run('COMMIT');
 
+        // Create notification for workspace creation
+        notificationService.notifyWorkspaceCreated(req.user.id, name, workspaceId)
+          .catch(err => console.error('Failed to create workspace notification:', err));
+
         res.status(201).json({
           id: workspaceId,
           name,
@@ -277,6 +282,55 @@ router.delete('/:id', authenticateToken, (req, res) => {
       }
 
       res.json({ success: true, message: 'Workspace deleted successfully' });
+    });
+  });
+});
+
+// Get workspace members
+router.get('/:id/members', authenticateToken, (req, res) => {
+  const workspaceId = req.params.id;
+
+  // Check if user has access to this workspace
+  const accessQuery = `
+    SELECT wm.role as user_role
+    FROM workspace_members wm
+    WHERE wm.workspace_id = ? AND wm.user_id = ?
+  `;
+
+  db.get(accessQuery, [workspaceId, req.user.id], (err, access) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    if (!access) {
+      return res.status(404).json({ error: 'Workspace not found or access denied' });
+    }
+
+    // Get workspace members
+    const membersQuery = `
+      SELECT wm.*, u.display_name, u.avatar, u.username, u.email
+      FROM workspace_members wm
+      JOIN users u ON wm.user_id = u.id
+      WHERE wm.workspace_id = ?
+      ORDER BY wm.role, wm.joined_at ASC
+    `;
+
+    db.all(membersQuery, [workspaceId], (err, members) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database error' });
+      }
+
+      const formattedMembers = members.map(member => ({
+        userId: member.user_id,
+        username: member.username,
+        displayName: member.display_name,
+        email: member.email,
+        avatar: member.avatar,
+        role: member.role,
+        joinedAt: member.joined_at
+      }));
+
+      res.json(formattedMembers);
     });
   });
 });

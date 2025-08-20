@@ -27,7 +27,9 @@ export const nodes = [
 	() => import('./nodes/23'),
 	() => import('./nodes/24'),
 	() => import('./nodes/25'),
-	() => import('./nodes/26')
+	() => import('./nodes/26'),
+	() => import('./nodes/27'),
+	() => import('./nodes/28')
 ];
 
 export const server_loads = [];
@@ -47,17 +49,19 @@ export const dictionary = {
 		"/calendar": [13],
 		"/calendar/auth-callback": [14],
 		"/chat": [15],
-		"/files": [16],
-		"/login": [17],
-		"/notifications": [18],
-		"/register": [19],
-		"/search": [20],
-		"/settings": [21],
-		"/settings/integrations": [22],
-		"/settings/integrations/webhooks": [23],
-		"/settings/integrations/webhooks/new": [24],
-		"/share": [25],
-		"/workspaces/[id]": [26]
+		"/collections": [16],
+		"/files": [17],
+		"/login": [18],
+		"/notes/[id]/edit": [19],
+		"/notifications": [20],
+		"/register": [21],
+		"/search": [22],
+		"/settings": [23],
+		"/settings/integrations": [24],
+		"/settings/integrations/webhooks": [25],
+		"/settings/integrations/webhooks/new": [26],
+		"/share": [27],
+		"/workspaces/[id]": [28]
 	};
 
 export const hooks = {

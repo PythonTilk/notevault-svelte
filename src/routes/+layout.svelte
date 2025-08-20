@@ -4,9 +4,11 @@
   import { page } from '$app/stores';
   import { browser } from '$app/environment';
   import { authStore, isAuthenticated, isLoading } from '$lib/stores/auth';
+  import { showCreateWorkspaceModal } from '$lib/stores/modals';
   import { goto } from '$app/navigation';
   import Sidebar from '$lib/components/Sidebar.svelte';
   import CommandPalette from '$lib/components/CommandPalette.svelte';
+  import CreateWorkspaceModal from '$lib/components/CreateWorkspaceModal.svelte';
   import ToastContainer from '$lib/components/ToastContainer.svelte';
   import { initializePWA, isOnline, isInstallable, updateAvailable, installPWA, updateServiceWorker } from '$lib/pwa';
   import InstallPrompt from '$lib/components/mobile/InstallPrompt.svelte';
@@ -206,7 +208,7 @@
       
       // Action commands
       case 'new-workspace':
-        goto('/?action=create-workspace');
+        showCreateWorkspaceModal.set(true);
         break;
       case 'new-note':
         goto('/?action=create-note');
@@ -342,6 +344,9 @@
     on:execute={handleCommandExecuted}
     on:close={() => showCommandPalette = false}
   />
+  
+  <!-- Global Create Workspace Modal -->
+  <CreateWorkspaceModal />
 {:else}
   <!-- Public layout without sidebar -->
   <div class="min-h-screen bg-dark-950">

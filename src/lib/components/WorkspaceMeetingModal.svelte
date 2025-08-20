@@ -60,11 +60,15 @@
     error = null;
 
     try {
+      // Calculate end time from start time and duration
+      const startDate = new Date(meeting.startTime);
+      const endDate = new Date(startDate.getTime() + meeting.duration * 60 * 1000);
+      
       const result = await api.scheduleMeetingFromWorkspace(workspaceId, {
         title: meeting.title,
         description: meeting.description,
         startTime: meeting.startTime,
-        duration: meeting.duration,
+        endTime: endDate.toISOString(),
         attendees: meeting.attendees,
         generateMeetingLink: meeting.generateMeetingLink
       });
@@ -73,7 +77,22 @@
       handleClose();
     } catch (err) {
       console.error('Failed to create meeting:', err);
-      error = err instanceof Error ? err.message : 'Failed to create meeting';
+      if (err instanceof Error) {
+        error = err.message;
+      } else if (typeof err === 'object' && err !== null) {
+        // Handle cases where the error is an object with various structures
+        if ('message' in err) {
+          error = String(err.message);
+        } else if ('error' in err) {
+          error = String(err.error);
+        } else {
+          error = JSON.stringify(err);
+        }
+      } else if (typeof err === 'string') {
+        error = err;
+      } else {
+        error = 'Failed to create meeting. Please try again.';
+      }
     } finally {
       isCreating = false;
     }

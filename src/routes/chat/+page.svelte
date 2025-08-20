@@ -16,6 +16,8 @@
     if (!$isConnected) {
       chatStore.connect();
     }
+    // Load public chat messages only (exclude workspace channels)
+    chatStore.loadMessages({ channel: 'public' });
   });
 
   afterUpdate(() => {
@@ -72,6 +74,12 @@
   function cancelReply() {
     replyingTo = null;
   }
+
+  function autoResizeTextarea(event: Event) {
+    const textarea = event.target as HTMLTextAreaElement;
+    textarea.style.height = 'auto';
+    textarea.style.height = Math.min(textarea.scrollHeight, 128) + 'px'; // Max height of 128px
+  }
 </script>
 
 <svelte:head>
@@ -104,9 +112,9 @@
   </div>
 </header>
 
-<div class="flex-1 flex overflow-hidden">
+<div class="flex-1 flex overflow-hidden min-h-0">
   <!-- Main Chat -->
-  <div class="flex-1 flex flex-col">
+  <div class="flex-1 flex flex-col min-h-0">
     <!-- Messages -->
     <div 
       bind:this={messagesContainer}
@@ -165,7 +173,8 @@
             id="message-input"
             bind:value={messageInput}
             on:keydown={handleKeyPress}
-            class="input resize-none pr-20"
+            on:input={autoResizeTextarea}
+            class="input resize-none pr-20 max-h-32"
             rows="1"
             placeholder={replyingTo ? `Reply to ${replyingTo.author.displayName}...` : "Type a message..."}
             disabled={!$isConnected}

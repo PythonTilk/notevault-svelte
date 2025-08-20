@@ -37,6 +37,7 @@
   let folders: {id: string, name: string, parentId?: string}[] = [];
   let breadcrumbs: {id: string | null, name: string}[] = [{id: null, name: 'Files'}];
   let showMetadata = false;
+  let uploadAsPublic = false;
 
   let loadError: string | null = null;
   let uploadProgress: Map<string, number> = new Map();
@@ -79,7 +80,7 @@
         type: file.type,
         size: file.size,
         url: api.getFileDownloadUrl(file.id),
-        uploaderId: file.uploadedBy.id,
+        uploaderId: (file.uploadedBy && file.uploadedBy.id) || file.uploaderId || 'unknown',
         workspaceId: file.workspaceId,
         createdAt: new Date(file.createdAt),
         isPublic: file.isPublic,
@@ -286,7 +287,7 @@
           }
         }, 200);
         
-        const uploadedFile = await api.uploadFile(file, undefined, false);
+        const uploadedFile = await api.uploadFile(file, undefined, uploadAsPublic);
         
         clearInterval(progressInterval);
         uploadProgress.set(fileId, 100);
@@ -298,7 +299,7 @@
           type: uploadedFile.type,
           size: uploadedFile.size,
           url: api.getFileDownloadUrl(uploadedFile.id),
-          uploaderId: uploadedFile.uploadedBy.id,
+          uploaderId: (uploadedFile.uploadedBy && uploadedFile.uploadedBy.id) || uploadedFile.uploaderId || 'unknown',
           workspaceId: uploadedFile.workspaceId,
           createdAt: new Date(uploadedFile.createdAt),
           isPublic: uploadedFile.isPublic
@@ -1237,6 +1238,37 @@
           <label for="file-upload" class="btn-primary cursor-pointer">
             Choose Files
           </label>
+        </div>
+        
+        <!-- Privacy Settings -->
+        <div class="mt-6 p-4 bg-dark-800 rounded-lg">
+          <h3 class="text-sm font-medium text-white mb-3">Privacy Settings</h3>
+          <div class="space-y-3">
+            <label class="flex items-center cursor-pointer">
+              <input
+                type="radio"
+                bind:group={uploadAsPublic}
+                value={false}
+                class="w-4 h-4 text-primary-600 bg-dark-700 border-dark-600 focus:ring-primary-500 focus:ring-2"
+              />
+              <div class="ml-3">
+                <span class="text-sm text-white">Private</span>
+                <p class="text-xs text-dark-400">Only you and workspace members can access</p>
+              </div>
+            </label>
+            <label class="flex items-center cursor-pointer">
+              <input
+                type="radio"
+                bind:group={uploadAsPublic}
+                value={true}
+                class="w-4 h-4 text-primary-600 bg-dark-700 border-dark-600 focus:ring-primary-500 focus:ring-2"
+              />
+              <div class="ml-3">
+                <span class="text-sm text-white">Public</span>
+                <p class="text-xs text-dark-400">Anyone with the link can access</p>
+              </div>
+            </label>
+          </div>
         </div>
         
         <div class="flex items-center justify-end space-x-3 mt-6">

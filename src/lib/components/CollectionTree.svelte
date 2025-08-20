@@ -32,7 +32,7 @@
   let showMenu: string | null = null;
 
   function getCollectionNoteCount(collectionId: string): number {
-    return notes.filter(note => note.collectionId === collectionId).length;
+    return (notes && Array.isArray(notes)) ? notes.filter(note => note.collectionId === collectionId).length : 0;
   }
 
   function handleCollectionClick(collection: NoteCollection | null) {
@@ -73,7 +73,7 @@
   }
 
   // Build flat list with proper nesting levels
-  $: flattenedCollections = collections.reduce((acc: (NoteCollection & { level: number })[], collection) => {
+  $: flattenedCollections = (collections && Array.isArray(collections)) ? collections.reduce((acc: (NoteCollection & { level: number })[], collection) => {
     function flatten(col: NoteCollection, level = 0): (NoteCollection & { level: number })[] {
       const result: (NoteCollection & { level: number })[] = [{ ...col, level }];
       
@@ -94,7 +94,7 @@
     }
     
     return acc;
-  }, []);
+  }, []) : [];
 </script>
 
 <div class="collection-tree space-y-1">
@@ -119,7 +119,7 @@
         Uncategorized
       </span>
       {#if showNoteCounts}
-        {@const uncategorizedCount = notes.filter(n => !n.collectionId).length}
+        {@const uncategorizedCount = (notes && Array.isArray(notes)) ? notes.filter(n => !n.collectionId).length : 0}
         {#if uncategorizedCount > 0}
           <span class="text-xs ml-auto"
             class:text-primary-400={selectedCollectionId === null}
@@ -133,7 +133,7 @@
 
   <!-- Collections tree -->
   {#each flattenedCollections as collection (collection.id)}
-    {@const hasChildren = collections.some(c => c.parentId === collection.id)}
+    {@const hasChildren = (collections && Array.isArray(collections)) ? collections.some(c => c.parentId === collection.id) : false}
     {@const noteCount = showNoteCounts ? getCollectionNoteCount(collection.id) : 0}
     {@const isSelected = selectedCollectionId === collection.id}
     {@const indentStyle = `margin-left: ${collection.level * 16}px`}

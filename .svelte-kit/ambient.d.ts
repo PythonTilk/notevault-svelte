@@ -79,7 +79,6 @@ declare module '$env/static/private' {
 	export const SSL_EMAIL: string;
 	export const SHELL: string;
 	export const npm_command: string;
-	export const COREPACK_ENABLE_AUTO_PIN: string;
 	export const npm_config_userconfig: string;
 	export const COLORTERM: string;
 	export const HYPRLAND_CMD: string;
@@ -112,7 +111,6 @@ declare module '$env/static/private' {
 	export const _: string;
 	export const KITTY_PUBLIC_KEY: string;
 	export const TERMINAL: string;
-	export const CLAUDECODE: string;
 	export const MOTD_SHOWN: string;
 	export const HOME: string;
 	export const LANG: string;
@@ -123,6 +121,7 @@ declare module '$env/static/private' {
 	export const STARSHIP_SHELL: string;
 	export const WAYLAND_DISPLAY: string;
 	export const KITTY_WINDOW_ID: string;
+	export const FORCE_COLOR: string;
 	export const XDG_SEAT_PATH: string;
 	export const INIT_CWD: string;
 	export const STARSHIP_SESSION_KEY: string;
@@ -131,9 +130,9 @@ declare module '$env/static/private' {
 	export const SDL_IM_MODULE: string;
 	export const npm_config_npm_version: string;
 	export const XDG_SESSION_CLASS: string;
-	export const TERM: string;
-	export const LC_IDENTIFICATION: string;
 	export const TERMINFO: string;
+	export const LC_IDENTIFICATION: string;
+	export const TERM: string;
 	export const npm_package_name: string;
 	export const npm_config_prefix: string;
 	export const USER: string;
@@ -143,17 +142,14 @@ declare module '$env/static/private' {
 	export const GSK_RENDERER: string;
 	export const SHLVL: string;
 	export const MOZ_ENABLE_WAYLAND: string;
-	export const GIT_EDITOR: string;
 	export const LC_TELEPHONE: string;
 	export const QT_IM_MODULE: string;
 	export const LC_MEASUREMENT: string;
 	export const XDG_VTNR: string;
 	export const XDG_SESSION_ID: string;
 	export const npm_config_user_agent: string;
-	export const OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE: string;
 	export const npm_execpath: string;
 	export const XDG_RUNTIME_DIR: string;
-	export const CLAUDE_CODE_ENTRYPOINT: string;
 	export const DEBUGINFOD_URLS: string;
 	export const npm_package_json: string;
 	export const LC_TIME: string;
@@ -252,7 +248,6 @@ declare module '$env/dynamic/private' {
 		SSL_EMAIL: string;
 		SHELL: string;
 		npm_command: string;
-		COREPACK_ENABLE_AUTO_PIN: string;
 		npm_config_userconfig: string;
 		COLORTERM: string;
 		HYPRLAND_CMD: string;
@@ -285,7 +280,6 @@ declare module '$env/dynamic/private' {
 		_: string;
 		KITTY_PUBLIC_KEY: string;
 		TERMINAL: string;
-		CLAUDECODE: string;
 		MOTD_SHOWN: string;
 		HOME: string;
 		LANG: string;
@@ -296,6 +290,7 @@ declare module '$env/dynamic/private' {
 		STARSHIP_SHELL: string;
 		WAYLAND_DISPLAY: string;
 		KITTY_WINDOW_ID: string;
+		FORCE_COLOR: string;
 		XDG_SEAT_PATH: string;
 		INIT_CWD: string;
 		STARSHIP_SESSION_KEY: string;
@@ -304,9 +299,9 @@ declare module '$env/dynamic/private' {
 		SDL_IM_MODULE: string;
 		npm_config_npm_version: string;
 		XDG_SESSION_CLASS: string;
-		TERM: string;
-		LC_IDENTIFICATION: string;
 		TERMINFO: string;
+		LC_IDENTIFICATION: string;
+		TERM: string;
 		npm_package_name: string;
 		npm_config_prefix: string;
 		USER: string;
@@ -316,17 +311,14 @@ declare module '$env/dynamic/private' {
 		GSK_RENDERER: string;
 		SHLVL: string;
 		MOZ_ENABLE_WAYLAND: string;
-		GIT_EDITOR: string;
 		LC_TELEPHONE: string;
 		QT_IM_MODULE: string;
 		LC_MEASUREMENT: string;
 		XDG_VTNR: string;
 		XDG_SESSION_ID: string;
 		npm_config_user_agent: string;
-		OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE: string;
 		npm_execpath: string;
 		XDG_RUNTIME_DIR: string;
-		CLAUDE_CODE_ENTRYPOINT: string;
 		DEBUGINFOD_URLS: string;
 		npm_package_json: string;
 		LC_TIME: string;

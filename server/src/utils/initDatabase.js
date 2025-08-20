@@ -1,5 +1,6 @@
 import db from '../config/database.js';
 import bcrypt from 'bcryptjs';
+import { v4 as uuidv4 } from 'uuid';
 
 const initDatabase = () => {
   return new Promise((resolve, reject) => {
@@ -127,6 +128,21 @@ const initDatabase = () => {
         FOREIGN KEY (author_id) REFERENCES users (id) ON DELETE CASCADE
       );
 
+      -- Notifications table
+      CREATE TABLE IF NOT EXISTS notifications (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        message TEXT NOT NULL,
+        type TEXT DEFAULT 'info' CHECK (type IN ('info', 'success', 'warning', 'error')),
+        user_id TEXT NOT NULL,
+        is_read BOOLEAN DEFAULT FALSE,
+        action_url TEXT,
+        metadata TEXT, -- JSON as string
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+      );
+
       -- Audit logs table
       CREATE TABLE IF NOT EXISTS audit_logs (
         id TEXT PRIMARY KEY,
@@ -150,6 +166,9 @@ const initDatabase = () => {
       CREATE INDEX IF NOT EXISTS idx_chat_messages_created_at ON chat_messages(created_at);
       CREATE INDEX IF NOT EXISTS idx_files_uploader_id ON files(uploader_id);
       CREATE INDEX IF NOT EXISTS idx_files_workspace_id ON files(workspace_id);
+      CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
+      CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at);
+      CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read);
 
       -- Critical performance indexes (Phase 4)
       -- User authentication (highest priority - called on every login)
@@ -227,40 +246,97 @@ const initDatabase = () => {
 
       // Insert default admin user
       const adminPassword = await bcrypt.hash('admin123', 10);
-      const adminId = 'admin-' + Date.now();
+      const adminId = 'admin-default-user';
       
       // Hash demo password outside callback
       const demoPassword = await bcrypt.hash('demo123', 10);
-      const demoId = 'demo-' + Date.now();
+      const demoId = 'demo-default-user';
       
-      db.run(`
-        INSERT OR IGNORE INTO users (id, username, email, password_hash, display_name, role, force_password_change)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `, [adminId, 'admin', 'admin@notevault.com', adminPassword, 'Administrator', 'admin', true], (err) => {
-        if (err) {
-          console.error('Error creating admin user:', err);
-          resolve();
-          return;
-        } else {
-          console.log('Default admin user created (username: admin, password: admin123)');
-        }
-
-        // Insert demo user
-        db.run(`
-          INSERT OR IGNORE INTO users (id, username, email, password_hash, display_name, role, force_password_change)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
-        `, [demoId, 'demo', 'demo@notevault.com', demoPassword, 'Demo User', 'user', true], (err) => {
-          if (err) {
-            console.error('Error creating demo user:', err);
-          } else {
-            console.log('Demo user created (username: demo, password: demo123)');
-          }
-
-          // Skip announcements for now to avoid foreign key issues during initialization
-          console.log('Skipping announcements creation to avoid FK constraint issues');
-          resolve();
+      // Create users sequentially using async/await pattern
+      try {
+        // Create admin user
+        await new Promise((resolve, reject) => {
+          db.run(`
+            INSERT OR IGNORE INTO users (id, username, email, password_hash, display_name, role, force_password_change)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+          `, [adminId, 'admin', 'admin@notevault.com', adminPassword, 'Administrator', 'admin', true], function(err) {
+            if (err) {
+              console.error('Error creating admin user:', err);
+              reject(err);
+            } else {
+              console.log('Default admin user created (username: admin, password: admin123)');
+              resolve(this);
+            }
+          });
         });
-      });
+
+        // Create demo user
+        await new Promise((resolve, reject) => {
+          db.run(`
+            INSERT OR IGNORE INTO users (id, username, email, password_hash, display_name, role, force_password_change)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+          `, [demoId, 'demo', 'demo@notevault.com', demoPassword, 'Demo User', 'user', true], function(err) {
+            if (err) {
+              console.error('Error creating demo user:', err);
+              reject(err);
+            } else {
+              console.log('Demo user created (username: demo, password: demo123)');
+              resolve(this);
+            }
+          });
+        });
+
+        // Now create notifications after users are confirmed to exist
+        const adminNotificationId = uuidv4();
+        await new Promise((resolve, reject) => {
+          db.run(`
+            INSERT OR IGNORE INTO notifications (id, title, message, type, user_id, action_url)
+            VALUES (?, ?, ?, ?, ?, ?)
+          `, [
+            adminNotificationId,
+            'Welcome to NoteVault!',
+            'You have been set up as an administrator. Start by creating workspaces and managing your team.',
+            'success',
+            adminId,
+            '/admin'
+          ], function(err) {
+            if (err) {
+              console.error('Error creating admin notification:', err);
+              reject(err);
+            } else {
+              resolve(this);
+            }
+          });
+        });
+
+        const demoNotificationId = uuidv4();
+        await new Promise((resolve, reject) => {
+          db.run(`
+            INSERT OR IGNORE INTO notifications (id, title, message, type, user_id, action_url)
+            VALUES (?, ?, ?, ?, ?, ?)
+          `, [
+            demoNotificationId,
+            'Welcome to NoteVault!',
+            'Your demo account is ready. Explore workspaces, create notes, and collaborate with others.',
+            'info',
+            demoId,
+            '/'
+          ], function(err) {
+            if (err) {
+              console.error('Error creating demo notification:', err);
+              reject(err);
+            } else {
+              resolve(this);
+            }
+          });
+        });
+
+        console.log('Users and notifications created successfully');
+        resolve();
+      } catch (error) {
+        console.error('Error during user/notification creation:', error);
+        resolve(); // Don't fail the entire initialization
+      }
     });
   });
 };

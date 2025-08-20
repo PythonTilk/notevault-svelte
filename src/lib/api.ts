@@ -80,6 +80,15 @@ class ApiClient {
     return this.request('/workspaces');
   }
 
+  async getAdminWorkspaces(params?: { limit?: number; offset?: number }) {
+    const queryParams = new URLSearchParams();
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.offset) queryParams.append('offset', params.offset.toString());
+    
+    const url = `/admin/workspaces${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+    return this.request(url);
+  }
+
   async getWorkspace(id: string) {
     return this.request(`/workspaces/${id}`);
   }
@@ -110,6 +119,10 @@ class ApiClient {
 
   async deleteWorkspace(id: string) {
     return this.request(`/workspaces/${id}`, { method: 'DELETE' });
+  }
+
+  async getWorkspaceMembers(workspaceId: string) {
+    return this.request(`/workspaces/${workspaceId}/members`);
   }
 
   async addWorkspaceMember(workspaceId: string, userId: string, role = 'member') {

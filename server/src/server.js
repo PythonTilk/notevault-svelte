@@ -17,6 +17,7 @@ import adminRoutes from './routes/admin.js';
 import auditRoutes from './routes/audit.js';
 import secretsRoutes from './routes/secrets.js';
 import integrationsRoutes from './routes/integrations.js';
+import notificationRoutes from './routes/notifications.js';
 import databaseHealthRoutes from './routes/database-health.js';
 import dlpRoutes from './routes/dlp.js';
 import backupRoutes from './routes/backup.js';
@@ -28,6 +29,7 @@ import initDatabase from './utils/initDatabase.js';
 import db from './config/database.js';
 import { globalErrorHandler, DatabaseWrapper, asyncHandler } from './utils/errorHandler.js';
 import logger, { requestLogger, auditLogger, SECURITY_EVENTS } from './utils/logger.js';
+import notificationService from './services/notificationService.js';
 // Import Swagger documentation
 import { specs, swaggerUi, swaggerOptions } from './swagger.js';
 
@@ -60,6 +62,7 @@ const corsOrigins = process.env.CORS_ORIGIN ?
   [
     'http://localhost:5173', 
     'http://localhost:50063', 
+    'http://localhost:50064',
     'http://localhost:56770',
     'http://localhost:3000',
     'http://frontend:3000'
@@ -148,6 +151,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/secrets', secretsRoutes);
 app.use('/api/integrations', integrationsRoutes);
+app.use('/api/notifications', notificationRoutes);
 app.use('/api/database', databaseHealthRoutes);
 app.use('/api/dlp', dlpRoutes);
 app.use('/api/backup', backupRoutes);
@@ -220,6 +224,9 @@ const authenticateSocketToken = (token) => {
 // Socket.IO connection handling
 const connectedUsers = new Map();
 
+// Initialize notification service with Socket.IO
+notificationService.setSocketIO(io);
+
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
 
@@ -240,8 +247,15 @@ io.on('connection', (socket) => {
         }
       });
       
-      // Broadcast user online status
-      socket.broadcast.emit('user-online', { userId: user.id });
+      // Broadcast user online status with user data
+      socket.broadcast.emit('user-online', {
+        userId: user.id,
+        username: user.username,
+        displayName: user.display_name,
+        avatar: user.avatar,
+        role: user.role,
+        email: user.email
+      });
       
       console.log(`User authenticated: ${user.username} (${user.id})`);
     } catch (error) {
@@ -259,6 +273,28 @@ io.on('connection', (socket) => {
       socket.emit('authentication-error', { error: 'Authentication failed' });
       socket.disconnect();
     }
+  });
+
+  // Handle get online users request
+  socket.on('get-online-users', () => {
+    const userSession = connectedUsers.get(socket.id);
+    if (!userSession || !userSession.user) {
+      socket.emit('error', { error: 'Authentication required' });
+      return;
+    }
+
+    // Get all connected users
+    const onlineUsersList = Array.from(connectedUsers.values()).map(session => ({
+      id: session.user.id,
+      username: session.user.username,
+      displayName: session.user.display_name,
+      avatar: session.user.avatar,
+      role: session.user.role,
+      isOnline: true,
+      email: session.user.email
+    }));
+
+    socket.emit('online-users', onlineUsersList);
   });
 
   // Handle chat messages

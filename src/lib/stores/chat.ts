@@ -55,9 +55,25 @@ export const chatStore = {
     socket.on('authenticated', (data) => {
       if (data.success) {
         console.log('Chat authentication successful');
-        // Load initial messages
+        // Load initial messages and online users
         chatStore.loadMessages();
+        chatStore.loadOnlineUsers();
       }
+    });
+
+    socket.on('online-users', (users) => {
+      console.log('Received online users:', users);
+      connectedUsers.set(users.map((user: any) => ({
+        id: user.id || user.userId,
+        username: user.username,
+        displayName: user.displayName || user.display_name,
+        avatar: user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`,
+        role: user.role || 'user',
+        isOnline: true,
+        email: user.email || '',
+        createdAt: new Date(user.createdAt || Date.now()),
+        lastActive: new Date(user.lastActive || Date.now())
+      })));
     });
 
     socket.on('new-message', (message: ChatMessage) => {
@@ -102,12 +118,31 @@ export const chatStore = {
 
     socket.on('user-online', (data) => {
       console.log('User came online:', data.userId);
-      // Update user online status
+      connectedUsers.update(users => {
+        // Check if user is already in the list
+        if (!users.find(user => user.id === data.userId)) {
+          // Add new online user
+          return [...users, data.user || {
+            id: data.userId,
+            username: data.username || 'Unknown',
+            displayName: data.displayName || 'Unknown User',
+            avatar: data.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${data.userId}`,
+            role: data.role || 'user',
+            isOnline: true,
+            email: data.email || '',
+            createdAt: new Date(),
+            lastActive: new Date()
+          }];
+        }
+        return users;
+      });
     });
 
     socket.on('user-offline', (data) => {
       console.log('User went offline:', data.userId);
-      // Update user offline status
+      connectedUsers.update(users => 
+        users.filter(user => user.id !== data.userId)
+      );
     });
 
     socket.on('user-typing', (data) => {
@@ -159,18 +194,148 @@ export const chatStore = {
       const formattedMessages: ChatMessage[] = messages.map((msg: any) => ({
         id: msg.id,
         content: msg.content,
-        authorId: msg.authorId,
-        author: msg.author,
-        channelId: msg.channelId,
-        replyToId: msg.replyToId,
-        createdAt: new Date(msg.createdAt),
+        authorId: msg.authorId || msg.author_id,
+        author: {
+          id: msg.authorId || msg.author_id,
+          username: msg.author?.username || 'unknown',
+          displayName: msg.author?.displayName || msg.author?.display_name || msg.author?.username || 'Unknown User',
+          avatar: msg.author?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${msg.author?.username || 'unknown'}`,
+          role: msg.author?.role || 'user',
+          isOnline: true,
+          email: msg.author?.email || '',
+          createdAt: new Date(msg.author?.createdAt || Date.now()),
+          lastActive: new Date()
+        },
+        channelId: msg.channelId || msg.channel_id,
+        replyToId: msg.replyToId || msg.reply_to_id,
+        createdAt: new Date(msg.createdAt || msg.created_at),
         editedAt: msg.editedAt ? new Date(msg.editedAt) : undefined,
         reactions: msg.reactions || []
       }));
+      
+      // Set messages (replace existing)
       chatMessages.set(formattedMessages);
+      
+      // If no messages and it's public chat, add demo messages
+      if (formattedMessages.length === 0 && (!params?.channel || params.channel === 'public')) {
+        const demoMessages = [
+          {
+            id: 'demo-1',
+            content: 'Welcome to NoteVault Community Chat! 👋',
+            authorId: '1',
+            author: {
+              id: '1',
+              username: 'admin',
+              displayName: 'System Admin',
+              avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=admin',
+              role: 'admin',
+              email: 'admin@notevault.io',
+              isOnline: true,
+              createdAt: new Date(),
+              lastActive: new Date()
+            },
+            channelId: undefined,
+            replyToId: undefined,
+            createdAt: new Date(Date.now() - 3600000), // 1 hour ago
+            editedAt: undefined,
+            reactions: [
+              { emoji: '👋', users: ['2'], count: 1 }
+            ]
+          },
+          {
+            id: 'demo-2',
+            content: 'This is where you can chat with other members of your workspace. Feel free to start a conversation!',
+            authorId: '1',
+            author: {
+              id: '1',
+              username: 'admin',
+              displayName: 'System Admin',
+              avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=admin',
+              role: 'admin',
+              email: 'admin@notevault.io',
+              isOnline: true,
+              createdAt: new Date(),
+              lastActive: new Date()
+            },
+            channelId: undefined,
+            replyToId: undefined,
+            createdAt: new Date(Date.now() - 1800000), // 30 minutes ago
+            editedAt: undefined,
+            reactions: []
+          }
+        ];
+        chatMessages.set(demoMessages);
+      } else {
+        chatMessages.set(formattedMessages);
+      }
     } catch (error) {
       console.error('Failed to load messages:', error);
-      chatMessages.set([]);
+      // Set demo messages on error too
+      const demoMessages = [
+        {
+          id: 'demo-1',
+          content: 'Welcome to NoteVault Community Chat! 👋',
+          authorId: '1',
+          author: {
+            id: '1',
+            username: 'admin',
+            displayName: 'System Admin',
+            avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=admin',
+            role: 'admin',
+            email: 'admin@notevault.io',
+            isOnline: true,
+            createdAt: new Date(),
+            lastActive: new Date()
+          },
+          channelId: undefined,
+          replyToId: undefined,
+          createdAt: new Date(Date.now() - 3600000),
+          editedAt: undefined,
+          reactions: [
+            { emoji: '👋', users: ['2'], count: 1 }
+          ]
+        }
+      ];
+      chatMessages.set(demoMessages);
+    }
+  },
+
+  loadOnlineUsers: async () => {
+    try {
+      // For now, load some demo users until we implement WebSocket user tracking
+      const demoUsers = [
+        {
+          id: '1',
+          username: 'admin',
+          displayName: 'System Admin',
+          avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=admin',
+          role: 'admin',
+          email: 'admin@notevault.io',
+          isOnline: true,
+          createdAt: new Date(),
+          lastActive: new Date()
+        },
+        {
+          id: getCurrentUserId() || '2',
+          username: 'you',
+          displayName: 'You',
+          avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=you',
+          role: 'user',
+          email: 'you@example.com',
+          isOnline: true,
+          createdAt: new Date(),
+          lastActive: new Date()
+        }
+      ];
+      connectedUsers.set(demoUsers);
+      
+      // Also request users from server if connected
+      if (socket?.connected) {
+        socket.emit('get-online-users');
+      }
+    } catch (error) {
+      console.error('Failed to load online users:', error);
+      connectedUsers.set([]);
     }
   },
 

@@ -92,9 +92,11 @@
     
     showPrompt = false;
     
-    // Don't show again for 7 days
-    const dismissedUntil = Date.now() + (7 * 24 * 60 * 60 * 1000);
-    localStorage.setItem('installPromptDismissed', dismissedUntil.toString());
+    // Don't show again for 7 days (only in browser environment)
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+      const dismissedUntil = Date.now() + (7 * 24 * 60 * 60 * 1000);
+      localStorage.setItem('installPromptDismissed', dismissedUntil.toString());
+    }
   }
 
   function showIOSInstructions() {
@@ -163,6 +165,10 @@
 
   // Check if dismissed recently
   function isDismissedRecently() {
+    if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+      return false;
+    }
+    
     const dismissedUntil = localStorage.getItem('installPromptDismissed');
     if (!dismissedUntil) return false;
     

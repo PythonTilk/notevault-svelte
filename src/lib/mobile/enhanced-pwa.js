@@ -7,14 +7,42 @@
 
 class EnhancedPWA {
   constructor() {
+    // Only initialize in browser environment
+    if (typeof window === 'undefined') {
+      this.isSupported = this.getDefaultSupport();
+      return;
+    }
+    
     this.isSupported = this.checkSupport();
     this.init();
+  }
+
+  /**
+   * Get default support object for server-side rendering
+   */
+  getDefaultSupport() {
+    return {
+      vibration: false,
+      webShare: false,
+      speechRecognition: false,
+      getUserMedia: false,
+      backgroundFetch: false,
+      webPush: false,
+      paymentRequest: false,
+      webBluetooth: false,
+      wakeLock: false
+    };
   }
 
   /**
    * Check browser support for enhanced PWA features
    */
   checkSupport() {
+    // Additional safety check (should not be needed due to constructor check)
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+      return this.getDefaultSupport();
+    }
+
     return {
       vibration: 'vibrate' in navigator,
       webShare: 'share' in navigator,
@@ -452,7 +480,7 @@ class EnhancedPWA {
   }
 }
 
-// Initialize enhanced PWA
+// Initialize enhanced PWA (constructor handles SSR gracefully)
 const enhancedPWA = new EnhancedPWA();
 
 // Export both the instance and the class

@@ -89,8 +89,8 @@
 <div class="flex space-x-3 p-4 hover:bg-dark-800/50 transition-colors group">
   <!-- Avatar -->
   <img
-    src={message.author.avatar}
-    alt={message.author.displayName}
+    src={message.author.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${message.author.username}`}
+    alt={message.author.displayName || message.author.username}
     class="w-10 h-10 rounded-full flex-shrink-0"
   />
 

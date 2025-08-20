@@ -13,7 +13,7 @@ import {
   asyncHandler, 
   ValidationError, 
   NotFoundError,
-  ForbiddenError 
+  AuthorizationError 
 } from '../utils/errorHandler.js';
 
 const router = express.Router();

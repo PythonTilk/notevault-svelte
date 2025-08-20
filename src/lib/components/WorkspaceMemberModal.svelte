@@ -69,78 +69,32 @@
     error = null;
 
     try {
-      // Mock member data for now - replace with real API call
-      const mockMembers: WorkspaceMember[] = [
-        {
-          userId: currentUserId,
-          role: 'owner',
-          joinedAt: new Date('2024-01-01'),
-          user: {
-            id: currentUserId,
-            username: $currentUser?.username || 'user',
-            email: $currentUser?.email || 'user@example.com',
-            displayName: $currentUser?.displayName || 'Current User',
-            avatar: $currentUser?.avatar,
-            role: 'user',
-            createdAt: new Date(),
-            lastActive: new Date(),
-            isOnline: true
-          }
-        },
-        {
-          userId: 'user2',
-          role: 'admin',
-          joinedAt: new Date('2024-02-15'),
-          user: {
-            id: 'user2',
-            username: 'alice_smith',
-            email: 'alice@example.com',
-            displayName: 'Alice Smith',
-            avatar: null,
-            role: 'user',
-            createdAt: new Date('2024-01-01'),
-            lastActive: new Date(),
-            isOnline: true
-          }
-        },
-        {
-          userId: 'user3',
-          role: 'member',
-          joinedAt: new Date('2024-03-10'),
-          user: {
-            id: 'user3',
-            username: 'bob_jones',
-            email: 'bob@example.com',
-            displayName: 'Bob Jones',
-            avatar: null,
-            role: 'user',
-            createdAt: new Date('2024-01-01'),
-            lastActive: new Date(Date.now() - 1000 * 60 * 30), // 30 minutes ago
-            isOnline: false
-          }
-        },
-        {
-          userId: 'user4',
-          role: 'viewer',
-          joinedAt: new Date('2024-04-05'),
-          user: {
-            id: 'user4',
-            username: 'carol_white',
-            email: 'carol@example.com',
-            displayName: 'Carol White',
-            avatar: null,
-            role: 'user',
-            createdAt: new Date('2024-01-01'),
-            lastActive: new Date(Date.now() - 1000 * 60 * 60 * 2), // 2 hours ago
-            isOnline: false
-          }
+      // Load real member data from API
+      const memberData = await api.getWorkspaceMembers(workspaceId);
+      
+      // Transform the data to include user information
+      const formattedMembers: WorkspaceMember[] = memberData.map((member: any) => ({
+        userId: member.userId,
+        role: member.role,
+        joinedAt: new Date(member.joinedAt),
+        user: {
+          id: member.userId,
+          username: member.username,
+          email: member.email,
+          displayName: member.displayName,
+          avatar: member.avatar,
+          role: 'user', // Default user role for workspace members
+          createdAt: new Date(), // We don't have this from the API currently
+          lastActive: new Date(), // We don't have this from the API currently
+          isOnline: false // We don't have real-time status from this API currently
         }
-      ];
+      }));
 
-      members = mockMembers;
+      members = formattedMembers;
       dispatch('members-updated', { members });
 
     } catch (err) {
+      console.error('Failed to load workspace members:', err);
       error = err instanceof Error ? err.message : 'Failed to load members';
     } finally {
       isLoading = false;

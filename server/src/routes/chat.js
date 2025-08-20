@@ -18,7 +18,9 @@ router.get('/messages', authenticateToken, (req, res) => {
   
   const params = [];
 
-  if (channel) {
+  if (channel === 'public') {
+    query += ' WHERE cm.channel_id IS NULL';
+  } else if (channel) {
     query += ' WHERE cm.channel_id = ?';
     params.push(channel);
   }

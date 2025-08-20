@@ -36,15 +36,18 @@
     return connected ? 'text-green-400' : 'text-red-400';
   }
 
-  function getStatusText(status: any): string {
+  function getStatusText(status: any, isCompact: boolean = false): string {
     switch (status.status) {
       case 'in-room':
-        return `${status.userCount} collaborating`;
+        if (isCompact && status.userCount === 0) {
+          return '';
+        }
+        return isCompact ? `${status.userCount}` : `${status.userCount} collaborating`;
       case 'connected':
-        return 'Connected';
+        return isCompact ? '' : 'Connected';
       case 'disconnected':
       default:
-        return 'Offline';
+        return isCompact ? '' : 'Offline';
     }
   }
 
@@ -69,9 +72,11 @@
         this={status.connected ? Wifi : WifiOff} 
         class="w-4 h-4 {getStatusColor(status.connected)}"
       />
-      <span class="text-sm {getStatusColor(status.connected)}">
-        {getStatusText(status)}
-      </span>
+      {#if !compact || getStatusText(status, compact)}
+        <span class="text-sm {getStatusColor(status.connected)}">
+          {getStatusText(status, compact)}
+        </span>
+      {/if}
     </div>
 
     <!-- Active Collaborators -->

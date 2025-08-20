@@ -6,14 +6,11 @@
   import { currentUser } from '$lib/stores/auth';
   import { showCreateWorkspaceModal } from '$lib/stores/modals';
   import { goto } from '$app/navigation';
+  import { page } from '$app/stores';
   import { api } from '$lib/api';
   import WorkspaceCard from '$lib/components/WorkspaceCard.svelte';
 
   let viewMode: 'grid' | 'list' = 'grid';
-  let newWorkspaceName = '';
-  let newWorkspaceDescription = '';
-  let newWorkspaceColor = '#ef4444';
-  let newWorkspaceIsPublic = false;
 
   let announcements: any[] = [];
   let stats = [
@@ -30,34 +27,58 @@
     
     // Load real data
     await loadDashboardData();
+    
+    // Check for action parameters
+    const urlParams = new URLSearchParams($page.url.search);
+    const action = urlParams.get('action');
+    
+    if (action === 'create-workspace') {
+      showCreateWorkspaceModal.set(true);
+      // Clean up URL without the action parameter
+      const newUrl = new URL($page.url);
+      newUrl.searchParams.delete('action');
+      window.history.replaceState({}, '', newUrl.pathname);
+    }
   });
 
   async function loadDashboardData() {
     try {
-      // Load announcements
-      const announcementsData = await api.getAnnouncements();
-      announcements = announcementsData.filter((a: any) => a.isActive);
+      // Load announcements with better error handling
+      try {
+        const announcementsData = await api.getAnnouncements();
+        announcements = (announcementsData || []).filter((a: any) => a.isActive);
+      } catch (error) {
+        console.warn('Failed to load announcements:', error);
+        announcements = [];
+      }
 
       // Calculate stats from workspaces
       const workspacesData = await api.getWorkspaces();
-      const totalWorkspaces = workspacesData.length;
+      const totalWorkspaces = workspacesData?.length || 0;
 
       // Get recent messages for today's count
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const messagesData = await api.getChatMessages({ limit: 100 });
-      const messagesToday = messagesData.filter((m: any) => 
-        new Date(m.createdAt) >= today
-      ).length;
+      let messagesToday = 0;
+      try {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const messagesData = await api.getChatMessages({ limit: 100 });
+        messagesToday = (messagesData || []).filter((m: any) => 
+          new Date(m.createdAt) >= today
+        ).length;
+      } catch (error) {
+        console.warn('Failed to load chat messages:', error);
+      }
 
       // Count total notes across all workspaces
       let totalNotes = 0;
-      for (const workspace of workspacesData) {
-        try {
-          const notes = await api.getWorkspaceNotes(workspace.id);
-          totalNotes += notes.length;
-        } catch (error) {
-          console.error(`Failed to load notes for workspace ${workspace.id}:`, error);
+      if (workspacesData && Array.isArray(workspacesData)) {
+        for (const workspace of workspacesData) {
+          try {
+            const notes = await api.getWorkspaceNotes(workspace.id);
+            totalNotes += notes?.length || 0;
+          } catch (error) {
+            console.warn(`Failed to load notes for workspace ${workspace.id}:`, error);
+          }
         }
       }
 
@@ -71,31 +92,13 @@
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
       // Keep default values on error
+      announcements = [];
     } finally {
       isLoadingStats = false;
     }
   }
 
   function handleWorkspaceClick(workspace: any) {
-    goto(`/workspaces/${workspace.id}`);
-  }
-
-  async function handleCreateWorkspace() {
-    if (!newWorkspaceName.trim()) return;
-
-    const workspace = await workspaceStore.createWorkspace({
-      name: newWorkspaceName,
-      description: newWorkspaceDescription,
-      color: newWorkspaceColor,
-      isPublic: newWorkspaceIsPublic
-    });
-
-    showCreateWorkspaceModal.set(false);
-    newWorkspaceName = '';
-    newWorkspaceDescription = '';
-    newWorkspaceColor = '#ef4444';
-    newWorkspaceIsPublic = false;
-
     goto(`/workspaces/${workspace.id}`);
   }
 
@@ -230,7 +233,7 @@
                 <p class="text-dark-300 text-xs mt-1">{announcement.content}</p>
                 <div class="flex items-center justify-between mt-2 text-xs text-dark-400">
                   <span>{announcement.author.displayName}</span>
-                  <span>{formatDate(announcement.createdAt)}</span>
+                  <span>{formatDate(new Date(announcement.createdAt))}</span>
                 </div>
               </div>
             {/each}
@@ -295,82 +298,3 @@
   </div>
 </main>
 
-<!-- Create Workspace Modal -->
-{#if $showCreateWorkspaceModal}
-  <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-    <div class="bg-dark-900 rounded-lg border border-dark-800 w-full max-w-md">
-      <div class="p-6">
-        <h2 class="text-xl font-semibold text-white mb-4">Create New Workspace</h2>
-        
-        <form on:submit|preventDefault={handleCreateWorkspace} class="space-y-4">
-          <div>
-            <label for="name" class="block text-sm font-medium text-dark-300 mb-2">
-              Workspace Name
-            </label>
-            <input
-              id="name"
-              type="text"
-              bind:value={newWorkspaceName}
-              class="input"
-              placeholder="Enter workspace name"
-              required
-            />
-          </div>
-
-          <div>
-            <label for="description" class="block text-sm font-medium text-dark-300 mb-2">
-              Description (optional)
-            </label>
-            <textarea
-              id="description"
-              bind:value={newWorkspaceDescription}
-              class="input resize-none"
-              rows="3"
-              placeholder="Describe your workspace"
-            ></textarea>
-          </div>
-
-          <div>
-            <label for="color" class="block text-sm font-medium text-dark-300 mb-2">
-              Color
-            </label>
-            <div class="flex items-center space-x-3">
-              <input
-                id="color"
-                type="color"
-                bind:value={newWorkspaceColor}
-                class="w-12 h-10 rounded border border-dark-700 bg-dark-800"
-              />
-              <span class="text-sm text-dark-400">Choose a color for your workspace</span>
-            </div>
-          </div>
-
-          <div class="flex items-center">
-            <input
-              id="public"
-              type="checkbox"
-              bind:checked={newWorkspaceIsPublic}
-              class="rounded border-dark-700 bg-dark-800 text-primary-600 focus:ring-primary-500"
-            />
-            <label for="public" class="ml-2 text-sm text-dark-300">
-              Make this workspace public
-            </label>
-          </div>
-
-          <div class="flex items-center justify-end space-x-3 pt-4">
-            <button
-              type="button"
-              class="btn-secondary"
-              on:click={() => showCreateWorkspaceModal.set(false)}
-            >
-              Cancel
-            </button>
-            <button type="submit" class="btn-primary">
-              Create Workspace
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
-{/if}

@@ -34,7 +34,9 @@
     noteViewMode,
     availableTags
   } from '$lib/stores/noteManagement';
-  import { collectionsStore, collectionsTree, collectionStore } from '$lib/stores/collections';
+  import { collectionsStore, collectionsTree, collectionStore, loadCollectionsForWorkspace } from '$lib/stores/collections';
+  import { chatMessages, onlineUsers, isConnected, chatStore } from '$lib/stores/chat';
+  import ChatMessage from '$lib/components/ChatMessage.svelte';
 
   let workspaceId: string;
   let canvasElement: HTMLDivElement;
@@ -43,11 +45,27 @@
   let selectedNote: Note | null = null;
   let showMemberModal = false;
   let showMeetingModal = false;
+  let showShareModal = false;
+  let showSettingsModal = false;
   let workspaceMembers: WorkspaceMember[] = [];
+  
+  // Settings form variables
+  let settingsForm = {
+    name: '',
+    description: '',
+    color: '',
+    isPublic: false
+  };
+  let settingsSaving = false;
   
   // Collections
   let showCollectionsSidebar = true;
   let showCollectionModal = false;
+  
+  // Chat
+  let showChatSidebar = false;
+  let chatMessage = '';
+  let chatContainer: HTMLDivElement;
   
   // Mobile responsiveness
   let isMobile = false;
@@ -87,8 +105,10 @@
   $: filteredNotes = $filteredAndSortedNotes($workspaceNotes);
   $: workspaceAvailableTags = $availableTags($workspaceNotes);
   
-  // Get workspace collections
-  $: workspaceCollections = $collectionsTree.filter(c => c.workspaceId === workspaceId);
+  // Get workspace collections (with fallback for empty state)
+  $: workspaceCollections = ($collectionsTree && Array.isArray($collectionsTree)) 
+    ? $collectionsTree.filter(c => c.workspaceId === workspaceId) 
+    : [];
 
   onMount(() => {
     // Detect mobile and tablet devices
@@ -107,18 +127,23 @@
     window.addEventListener('resize', updateDeviceType);
     
     if (workspaceId) {
-      workspaceStore.loadWorkspaceNotes(workspaceId);
-      // Mock current workspace
-      currentWorkspace.set({
-        id: workspaceId,
-        name: 'Personal Projects',
-        description: 'My personal workspace',
-        color: '#ef4444',
-        ownerId: '1',
-        members: [{ userId: '1', role: 'owner', joinedAt: new Date() }],
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        isPublic: false
+      // Load collections for this workspace
+      loadCollectionsForWorkspace(workspaceId);
+      
+      // Load real workspace data, notes, and members
+      Promise.all([
+        workspaceStore.loadWorkspace(workspaceId),
+        workspaceStore.loadWorkspaceNotes(workspaceId),
+        workspaceStore.loadWorkspaceMembers(workspaceId)
+      ]).then(([workspace, notes, members]) => {
+        console.log('Workspace loaded:', workspace);
+        console.log('Notes loaded:', $workspaceNotes.length, 'notes');
+        console.log('Members loaded:', members.length, 'members');
+        console.log('Collections loaded:', $collectionsTree.length, 'collections');
+        workspaceMembers = members;
+      }).catch(error => {
+        console.error('Failed to load workspace data:', error);
+        // Set error state or show error message to user
       });
 
       // Initialize collaboration if user is authenticated
@@ -396,6 +421,99 @@
     showMobileDropdown = false;
   }
 
+  // Settings functionality
+  function initializeSettings() {
+    if ($currentWorkspace) {
+      settingsForm = {
+        name: $currentWorkspace.name || '',
+        description: $currentWorkspace.description || '',
+        color: $currentWorkspace.color || '#3b82f6',
+        isPublic: $currentWorkspace.isPublic || false
+      };
+    }
+  }
+
+  async function saveWorkspaceSettings() {
+    if (!$currentWorkspace || settingsSaving) return;
+
+    settingsSaving = true;
+    try {
+      await workspaceStore.updateWorkspace(workspaceId, {
+        name: settingsForm.name,
+        description: settingsForm.description,
+        color: settingsForm.color,
+        isPublic: settingsForm.isPublic
+      });
+      
+      showSettingsModal = false;
+      // You could add a toast notification here
+      alert('Workspace settings saved successfully!');
+    } catch (error) {
+      console.error('Failed to save workspace settings:', error);
+      alert('Failed to save workspace settings. Please try again.');
+    } finally {
+      settingsSaving = false;
+    }
+  }
+
+  async function deleteWorkspace() {
+    if (!$currentWorkspace) return;
+    
+    const confirmed = confirm(`Are you sure you want to delete "${$currentWorkspace.name}"? This action cannot be undone.`);
+    if (!confirmed) return;
+
+    try {
+      await workspaceStore.deleteWorkspace(workspaceId);
+      goto('/'); // Redirect to home page
+    } catch (error) {
+      console.error('Failed to delete workspace:', error);
+      alert('Failed to delete workspace. Please try again.');
+    }
+  }
+
+  // Initialize settings form when modal opens
+  $: if (showSettingsModal && $currentWorkspace) {
+    initializeSettings();
+  }
+
+  // Chat functionality
+  async function sendChatMessage() {
+    if (!chatMessage.trim()) return;
+
+    try {
+      await chatStore.sendMessage(chatMessage, `workspace-${workspaceId}`);
+      chatMessage = '';
+      
+      // Scroll to bottom
+      if (chatContainer) {
+        setTimeout(() => {
+          chatContainer.scrollTop = chatContainer.scrollHeight;
+        }, 100);
+      }
+    } catch (error) {
+      console.error('Failed to send chat message:', error);
+      alert('Failed to send message. Please try again.');
+    }
+  }
+
+  function handleChatKeyPress(event: KeyboardEvent) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      sendChatMessage();
+    }
+  }
+
+  // Initialize chat when workspace loads
+  $: if (workspaceId) {
+    if (!$isConnected) {
+      chatStore.connect();
+    }
+    // Load workspace-specific messages
+    chatStore.loadMessages({ channel: `workspace-${workspaceId}` });
+    chatStore.loadOnlineUsers();
+    chatStore.joinWorkspace(workspaceId);
+  }
+
   // Close mobile dropdown when clicking outside
   function handleWindowClick(event: MouseEvent) {
     if (showMobileDropdown && !event.target?.closest('.mobile-dropdown')) {
@@ -510,6 +628,23 @@
         {#if !isMobile}Collections{/if}
       </button>
       
+      <!-- Chat Toggle -->
+      <button
+        class="btn-ghost text-xs md:text-sm px-2 md:px-3"
+        on:click={() => showChatSidebar = !showChatSidebar}
+        title={showChatSidebar ? 'Hide Chat' : 'Show Chat'}
+      >
+        <svg class="w-4 h-4 {isMobile ? '' : 'mr-2'}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+        </svg>
+        {#if !isMobile}Chat{/if}
+        {#if $onlineUsers.length > 0}
+          <span class="ml-1 bg-green-500 text-white text-xs rounded-full px-1.5 py-0.5">
+            {$onlineUsers.length}
+          </span>
+        {/if}
+      </button>
+      
       <!-- Collaboration Status -->
       {#if $collaborationStatus.connected}
         <div class="flex items-center space-x-2 bg-dark-800 px-2 md:px-3 py-2 rounded-lg border border-dark-700">
@@ -544,7 +679,11 @@
             </span>
           {/if}
         </button>
-        <button class="btn-ghost text-sm" aria-label="Share workspace">
+        <button 
+          class="btn-ghost text-sm" 
+          on:click={() => showShareModal = true}
+          aria-label="Share workspace"
+        >
           <Share class="w-4 h-4 mr-2" />
           Share
         </button>
@@ -556,7 +695,11 @@
           <Calendar class="w-4 h-4 mr-2" />
           Schedule Meeting
         </button>
-        <button class="btn-ghost text-sm" aria-label="Workspace settings">
+        <button 
+          class="btn-ghost text-sm" 
+          on:click={() => showSettingsModal = true}
+          aria-label="Workspace settings"
+        >
           <Settings class="w-4 h-4" />
         </button>
       {:else}
@@ -578,7 +721,7 @@
                   class="w-full text-left px-3 py-2 text-sm text-white hover:bg-dark-700 flex items-center space-x-2"
                   on:click={() => {
                     closeMobileDropdown();
-                    // Add share functionality
+                    showShareModal = true;
                   }}
                 >
                   <Share class="w-4 h-4" />
@@ -602,7 +745,7 @@
                   class="w-full text-left px-3 py-2 text-sm text-white hover:bg-dark-700 flex items-center space-x-2"
                   on:click={() => {
                     closeMobileDropdown();
-                    // Add settings functionality
+                    showSettingsModal = true;
                   }}
                 >
                   <Settings class="w-4 h-4" />
@@ -720,8 +863,10 @@
     </div>
   {/if}
 
-  <!-- Canvas -->
-  <main class="flex-1 overflow-hidden relative bg-dark-950">
+  <!-- Main Content with Chat Sidebar -->
+<main class="flex-1 overflow-hidden flex bg-dark-950">
+  <!-- Canvas Area -->
+  <div class="flex-1 relative">
   <div
     bind:this={canvasElement}
     id="workspace-canvas"
@@ -815,6 +960,104 @@
       </div>
     {/if}
   </div>
+  
+  <!-- Chat Sidebar -->
+  {#if showChatSidebar}
+    <div class="w-80 bg-dark-900 border-l border-dark-800 flex flex-col flex-shrink-0">
+      <!-- Chat Header -->
+      <div class="p-4 border-b border-dark-800">
+        <div class="flex items-center justify-between">
+          <h3 class="text-lg font-semibold text-white">Workspace Chat</h3>
+          <button
+            on:click={() => showChatSidebar = false}
+            class="text-dark-400 hover:text-white"
+          >
+            ×
+          </button>
+        </div>
+        <p class="text-sm text-dark-400">
+          {#if $isConnected}
+            {$onlineUsers.length} users online
+          {:else}
+            Connecting...
+          {/if}
+        </p>
+      </div>
+
+      <!-- Chat Messages -->
+      <div 
+        bind:this={chatContainer}
+        class="flex-1 overflow-y-auto p-4 space-y-1"
+      >
+        {#if !$isConnected}
+          <div class="flex items-center justify-center h-full">
+            <div class="text-center">
+              <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500 mx-auto mb-4"></div>
+              <p class="text-dark-400">Connecting...</p>
+            </div>
+          </div>
+        {:else if $chatMessages.length === 0}
+          <div class="flex items-center justify-center h-full">
+            <div class="text-center">
+              <div class="w-16 h-16 bg-dark-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8 text-dark-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                </svg>
+              </div>
+              <h3 class="text-lg font-medium text-white mb-2">No messages yet</h3>
+              <p class="text-dark-400">Start the conversation!</p>
+            </div>
+          </div>
+        {:else}
+          {#each $chatMessages as message (message.id)}
+            <div class="mb-4">
+              <ChatMessage 
+                {message} 
+                currentUserId={$currentUser?.id || '1'}
+              />
+            </div>
+          {/each}
+        {/if}
+      </div>
+
+      <!-- Chat Input -->
+      <div class="border-t border-dark-800 p-4">
+        <div class="flex items-center space-x-2">
+          <input
+            bind:value={chatMessage}
+            on:keydown={handleChatKeyPress}
+            class="flex-1 input text-sm"
+            placeholder="Type a message..."
+            disabled={!$isConnected}
+          />
+          <button
+            class="btn-primary px-3 py-2"
+            on:click={sendChatMessage}
+            disabled={!chatMessage.trim() || !$isConnected}
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+            </svg>
+          </button>
+        </div>
+        
+        <!-- Online Users -->
+        {#if $onlineUsers.length > 0}
+          <div class="mt-3">
+            <p class="text-xs text-dark-400 mb-2">Online ({$onlineUsers.length})</p>
+            <div class="flex flex-wrap gap-1">
+              {#each $onlineUsers as user}
+                <div class="flex items-center space-x-1 bg-dark-800 px-2 py-1 rounded text-xs">
+                  <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span class="text-dark-300">{user.displayName}</span>
+                </div>
+              {/each}
+            </div>
+          </div>
+        {/if}
+      </div>
+    </div>
+  {/if}
   </main>
 </div>
 
@@ -1073,6 +1316,261 @@
       // Could redirect to calendar or show notification
     }}
   />
+{/if}
+
+<!-- Share Workspace Modal -->
+{#if showShareModal && $currentWorkspace}
+  <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" transition:fade>
+    <div class="bg-dark-900 rounded-lg border border-dark-800 w-full max-w-md">
+      <div class="p-6 border-b border-dark-800">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xl font-semibold text-white flex items-center">
+            <Share class="w-5 h-5 mr-2" />
+            Share Workspace
+          </h2>
+          <button
+            on:click={() => showShareModal = false}
+            class="text-dark-400 hover:text-white transition-colors"
+          >
+            <Plus class="w-5 h-5 rotate-45" />
+          </button>
+        </div>
+      </div>
+      
+      <div class="p-6">
+        <div class="space-y-4">
+          <!-- Share Link -->
+          <div>
+            <label class="block text-sm font-medium text-dark-300 mb-2">
+              Share Link
+            </label>
+            <div class="flex">
+              <input
+                type="text"
+                value="{window?.location?.origin || ''}/workspaces/{workspaceId}"
+                readonly
+                class="flex-1 p-3 bg-dark-800 border border-dark-700 rounded-l-lg text-white text-sm"
+              />
+              <button
+                class="px-4 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-r-lg transition-colors"
+                on:click={async () => {
+                  try {
+                    const shareUrl = `${window?.location?.origin || ''}/workspaces/${workspaceId}`;
+                    await navigator.clipboard.writeText(shareUrl);
+                    // You could add a toast notification here if you have one
+                    alert('Link copied to clipboard!');
+                  } catch (err) {
+                    console.error('Failed to copy:', err);
+                    alert('Failed to copy link to clipboard');
+                  }
+                }}
+              >
+                Copy
+              </button>
+            </div>
+          </div>
+          
+          <!-- Share Options -->
+          <div>
+            <label class="block text-sm font-medium text-dark-300 mb-2">
+              Share Options
+            </label>
+            <div class="space-y-2">
+              <label class="flex items-center">
+                <input type="checkbox" class="mr-2" checked />
+                <span class="text-sm text-white">Allow view access</span>
+              </label>
+              <label class="flex items-center">
+                <input type="checkbox" class="mr-2" />
+                <span class="text-sm text-white">Allow edit access</span>
+              </label>
+              <label class="flex items-center">
+                <input type="checkbox" class="mr-2" />
+                <span class="text-sm text-white">Require login</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="p-6 border-t border-dark-800">
+        <div class="flex items-center justify-end space-x-3">
+          <button
+            type="button"
+            class="btn-secondary"
+            on:click={() => showShareModal = false}
+          >
+            Close
+          </button>
+          <button 
+            class="btn-primary"
+            on:click={async () => {
+              const shareUrl = `${window?.location?.origin || ''}/workspaces/${workspaceId}`;
+              
+              if (navigator.share) {
+                try {
+                  await navigator.share({
+                    title: $currentWorkspace?.name || 'Workspace',
+                    text: `Check out this workspace: ${$currentWorkspace?.name || 'Workspace'}`,
+                    url: shareUrl
+                  });
+                } catch (err) {
+                  if (err.name !== 'AbortError') {
+                    console.error('Share failed:', err);
+                    alert('Failed to share workspace');
+                  }
+                }
+              } else {
+                // Fallback to copying to clipboard
+                try {
+                  await navigator.clipboard.writeText(shareUrl);
+                  alert('Link copied to clipboard!');
+                } catch (err) {
+                  console.error('Failed to copy:', err);
+                  alert('Failed to copy link to clipboard');
+                }
+              }
+              
+              showShareModal = false;
+            }}
+          >
+            <Share class="w-4 h-4 mr-2" />
+            Share
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- Workspace Settings Modal -->
+{#if showSettingsModal && $currentWorkspace}
+  <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" transition:fade>
+    <div class="bg-dark-900 rounded-lg border border-dark-800 w-full max-w-lg">
+      <div class="p-6 border-b border-dark-800">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xl font-semibold text-white flex items-center">
+            <Settings class="w-5 h-5 mr-2" />
+            Workspace Settings
+          </h2>
+          <button
+            on:click={() => showSettingsModal = false}
+            class="text-dark-400 hover:text-white transition-colors"
+          >
+            <Plus class="w-5 h-5 rotate-45" />
+          </button>
+        </div>
+      </div>
+      
+      <div class="p-6">
+        <div class="space-y-4">
+          <!-- Workspace Name -->
+          <div>
+            <label class="block text-sm font-medium text-dark-300 mb-2">
+              Workspace Name
+            </label>
+            <input
+              type="text"
+              bind:value={settingsForm.name}
+              class="w-full p-3 bg-dark-800 border border-dark-700 rounded-lg text-white"
+              placeholder="Enter workspace name"
+              required
+            />
+          </div>
+          
+          <!-- Description -->
+          <div>
+            <label class="block text-sm font-medium text-dark-300 mb-2">
+              Description
+            </label>
+            <textarea
+              bind:value={settingsForm.description}
+              class="w-full p-3 bg-dark-800 border border-dark-700 rounded-lg text-white h-24 resize-none"
+              placeholder="Enter workspace description"
+            ></textarea>
+          </div>
+          
+          <!-- Color -->
+          <div>
+            <label class="block text-sm font-medium text-dark-300 mb-2">
+              Color Theme
+            </label>
+            <div class="flex space-x-2">
+              {#each ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899'] as color}
+                <button
+                  class="w-8 h-8 rounded-full border-2 {settingsForm.color === color ? 'border-white' : 'border-dark-600'}"
+                  style="background-color: {color}"
+                  on:click={() => settingsForm.color = color}
+                ></button>
+              {/each}
+            </div>
+          </div>
+          
+          <!-- Privacy -->
+          <div>
+            <label class="block text-sm font-medium text-dark-300 mb-2">
+              Privacy
+            </label>
+            <div class="space-y-2">
+              <label class="flex items-center">
+                <input 
+                  type="radio" 
+                  name="privacy"
+                  bind:group={settingsForm.isPublic}
+                  value={false}
+                  class="mr-2" 
+                />
+                <span class="text-sm text-white">Private - Only invited members can access</span>
+              </label>
+              <label class="flex items-center">
+                <input 
+                  type="radio" 
+                  name="privacy"
+                  bind:group={settingsForm.isPublic}
+                  value={true}
+                  class="mr-2" 
+                />
+                <span class="text-sm text-white">Public - Anyone with the link can view</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="p-6 border-t border-dark-800">
+        <div class="flex items-center justify-between">
+          <button 
+            class="text-red-400 hover:text-red-300 text-sm transition-colors"
+            on:click={deleteWorkspace}
+          >
+            Delete Workspace
+          </button>
+          <div class="flex items-center space-x-3">
+            <button
+              type="button"
+              class="btn-secondary"
+              on:click={() => showSettingsModal = false}
+            >
+              Cancel
+            </button>
+            <button 
+              class="btn-primary" 
+              on:click={saveWorkspaceSettings}
+              disabled={settingsSaving || !settingsForm.name.trim()}
+            >
+              {#if settingsSaving}
+                <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                Saving...
+              {:else}
+                <Save class="w-4 h-4 mr-2" />
+                Save Changes
+              {/if}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 {/if}
 
 <!-- Note Edit Modal with AI-Enhanced Editor -->

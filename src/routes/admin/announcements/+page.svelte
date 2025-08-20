@@ -95,9 +95,9 @@
           avatar: announcement.author?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=admin`
         },
         stats: {
-          views: announcement.stats?.views || Math.floor(Math.random() * 500),
-          clicks: announcement.stats?.clicks || Math.floor(Math.random() * 100),
-          dismissed: announcement.stats?.dismissed || Math.floor(Math.random() * 50)
+          views: announcement.stats?.views || 0,
+          clicks: announcement.stats?.clicks || 0,
+          dismissed: announcement.stats?.dismissed || 0
         }
       }));
     } catch (err) {

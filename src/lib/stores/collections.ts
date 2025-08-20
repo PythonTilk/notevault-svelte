@@ -1,68 +1,70 @@
 import { writable, derived } from 'svelte/store';
 import type { NoteCollection } from '$lib/types';
 
-// Mock collections for now - in real app these would come from API
-const mockCollections: NoteCollection[] = [
-  {
-    id: 'collection-1',
-    name: 'Project Ideas',
-    description: 'Ideas for future projects',
-    workspaceId: 'workspace-1',
-    authorId: 'user-1',
-    color: '#3b82f6',
-    icon: '💡',
-    isExpanded: true,
-    sortOrder: 0,
-    createdAt: new Date('2024-01-15'),
-    updatedAt: new Date('2024-01-15')
-  },
-  {
-    id: 'collection-2',
-    name: 'Research',
-    description: 'Research notes and references',
-    workspaceId: 'workspace-1',
-    authorId: 'user-1',
-    color: '#10b981',
-    icon: '📚',
-    isExpanded: false,
-    sortOrder: 1,
-    createdAt: new Date('2024-01-16'),
-    updatedAt: new Date('2024-01-16')
-  },
-  {
-    id: 'collection-3',
-    name: 'Meeting Notes',
-    description: 'Notes from meetings and discussions',
-    workspaceId: 'workspace-1',
-    authorId: 'user-1',
-    parentId: 'collection-2',
-    color: '#8b5cf6',
-    icon: '📝',
-    isExpanded: true,
-    sortOrder: 0,
-    createdAt: new Date('2024-01-17'),
-    updatedAt: new Date('2024-01-17')
-  },
-  {
-    id: 'collection-4',
-    name: 'Archive',
-    description: 'Old or completed work',
-    workspaceId: 'workspace-1',
-    authorId: 'user-1',
-    color: '#6b7280',
-    icon: '📦',
-    isExpanded: false,
-    sortOrder: 2,
-    createdAt: new Date('2024-01-10'),
-    updatedAt: new Date('2024-01-10')
-  }
-];
+// Generate dynamic mock collections based on current workspace
+function generateMockCollections(workspaceId: string): NoteCollection[] {
+  if (!workspaceId) return [];
+  
+  return [
+    {
+      id: `collection-${workspaceId}-1`,
+      name: 'Project Ideas',
+      description: 'Ideas for future projects',
+      workspaceId: workspaceId,
+      authorId: 'user-1',
+      color: '#3b82f6',
+      icon: '💡',
+      isExpanded: true,
+      sortOrder: 0,
+      createdAt: new Date('2024-01-15'),
+      updatedAt: new Date('2024-01-15')
+    },
+    {
+      id: `collection-${workspaceId}-2`,
+      name: 'Research',
+      description: 'Research notes and references',
+      workspaceId: workspaceId,
+      authorId: 'user-1',
+      color: '#10b981',
+      icon: '📚',
+      isExpanded: false,
+      sortOrder: 1,
+      createdAt: new Date('2024-01-16'),
+      updatedAt: new Date('2024-01-16')
+    },
+    {
+      id: `collection-${workspaceId}-3`,
+      name: 'Meeting Notes',
+      description: 'Notes from meetings and discussions',
+      workspaceId: workspaceId,
+      authorId: 'user-1',
+      parentId: `collection-${workspaceId}-2`,
+      color: '#8b5cf6',
+      icon: '📝',
+      isExpanded: true,
+      sortOrder: 0,
+      createdAt: new Date('2024-01-17'),
+      updatedAt: new Date('2024-01-17')
+    }
+  ];
+}
 
-// Collections store
-export const collectionsStore = writable<NoteCollection[]>(mockCollections);
+// Collections store - initialized as empty, populated when workspace is loaded
+export const collectionsStore = writable<NoteCollection[]>([]);
+
+// Function to load collections for a workspace  
+export function loadCollectionsForWorkspace(workspaceId: string) {
+  const collections = generateMockCollections(workspaceId);
+  collectionsStore.set(collections);
+}
 
 // Derived stores
 export const collectionsTree = derived([collectionsStore], ([collections]) => {
+  // Safety check to ensure collections is always an array
+  if (!collections || !Array.isArray(collections)) {
+    return [];
+  }
+  
   const buildTree = (parentId?: string): NoteCollection[] => {
     return collections
       .filter(c => c.parentId === parentId)
