@@ -55,8 +55,7 @@ export const chatStore = {
     socket.on('authenticated', (data) => {
       if (data.success) {
         console.log('Chat authentication successful');
-        // Load initial messages and online users
-        chatStore.loadMessages();
+        // Load online users only; pages will load channel-specific messages
         chatStore.loadOnlineUsers();
       }
     });
@@ -77,6 +76,10 @@ export const chatStore = {
     });
 
     socket.on('new-message', (message: ChatMessage) => {
+      const uid = getCurrentUserId();
+      if (uid && (message.authorId === uid || message.author?.id === uid)) {
+        return; // Ignore own messages broadcasted back from server
+      }
       chatMessages.update(messages => [...messages, message]);
     });
 
@@ -385,11 +388,7 @@ export const chatStore = {
         )
       );
       
-      // Also send via socket for real-time
-      if (socket?.connected) {
-        socket.emit('send-message', { content, channelId, replyToId, messageId: message.id });
-      }
-      
+      // Do not emit via socket here; server will broadcast after API write
       return message;
     } catch (error) {
       console.error('Failed to send message:', error);
@@ -440,16 +439,7 @@ export const chatStore = {
         )
       );
       
-      // Also send via socket for real-time
-      if (socket?.connected) {
-        socket.emit('send-message', { 
-          content: messageToRetry.content, 
-          channelId: messageToRetry.channelId, 
-          replyToId: messageToRetry.replyToId, 
-          messageId: message.id 
-        });
-      }
-      
+      // Do not emit via socket here; server will broadcast after API write
       return message;
     } catch (error) {
       console.error('Failed to retry message:', error);
@@ -485,7 +475,7 @@ export const chatStore = {
     }
   },
 
-  deleteMessage: async (messageId: string) => {
+  deleteMessageApi: async (messageId: string) => {
     try {
       await api.deleteMessage(messageId);
       
@@ -625,7 +615,7 @@ export const chatStore = {
     }
   },
 
-  deleteMessage: (messageId: string) => {
+  deleteMessageSocket: (messageId: string) => {
     if (socket?.connected) {
       socket.emit('delete-message', { messageId });
       // Remove message from local store immediately
@@ -633,5 +623,11 @@ export const chatStore = {
         messages.filter(msg => msg.id !== messageId)
       );
     }
+  }
+,
+
+  // Backward-compatible alias
+  deleteMessage: async (messageId: string) => {
+    return chatStore.deleteMessageApi(messageId);
   }
 };

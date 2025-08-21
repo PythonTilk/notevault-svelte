@@ -76,6 +76,9 @@ const io = new Server(server, {
   }
 });
 
+// Make io available to routes
+app.set('io', io);
+
 // Enhanced security middleware
 app.use(securityHeaders);
 app.use(ipSecurity);

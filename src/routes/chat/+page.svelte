@@ -118,7 +118,7 @@
 </svelte:head>
 
 <!-- Header -->
-<header class="bg-dark-900 border-b border-dark-800 px-6 py-4">
+<header class="bg-dark-900 border-b border-dark-800 px-6 py-4 flex-shrink-0">
   <div class="flex items-center justify-between">
     <div>
       <h1 class="text-xl font-bold text-white">Community Chat</h1>
@@ -149,7 +149,7 @@
   </div>
 </header>
 
-<div class="flex-1 flex overflow-hidden min-h-0">
+<div class="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
   <!-- Main Chat -->
   <div class="flex-1 flex flex-col min-h-0">
     <!-- Messages -->
@@ -259,7 +259,7 @@
   </div>
 
   <!-- Online Users Sidebar -->
-  <div class="w-64 bg-dark-900 border-l border-dark-800 flex flex-col">
+  <div class="w-full lg:w-64 bg-dark-900 border-t lg:border-t-0 lg:border-l border-dark-800 flex flex-col flex-shrink-0">
     <div class="p-4 border-b border-dark-800">
       <h3 class="text-lg font-semibold text-white">Online Users</h3>
       <p class="text-sm text-dark-400">{$onlineUsers.length} online</p>

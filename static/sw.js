@@ -12,7 +12,7 @@ const DATA_CACHE = 'notevault-data-v1.0.0';
 // Assets to cache on install
 const STATIC_ASSETS = [
   '/',
-  '/app.html',
+  // '/app.html', // Removed: not a valid public path in SvelteKit dev
   '/favicon.png',
   '/manifest.json',
   // Add more static assets as needed
@@ -137,7 +137,8 @@ async function handleStaticRequest(request) {
   
   // For navigation requests, try network first, fallback to cache
   if (request.mode === 'navigate') {
-    return networkFirst(request, CACHE_NAME, '/');
+    // In production we could fallback to an offline page; avoid fallback to '/' to prevent wrong-route rendering
+    return networkFirst(request, CACHE_NAME);
   }
   
   // For other static assets, use cache first

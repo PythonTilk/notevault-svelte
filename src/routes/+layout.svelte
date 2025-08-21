@@ -322,7 +322,7 @@
       {focusModeActive}
     />
     
-    <main class="flex-1 overflow-hidden {focusModeActive ? 'focus-main' : ''}">
+    <main class="flex-1 flex flex-col min-h-0 overflow-hidden {focusModeActive ? 'focus-main' : ''}">
       <slot />
     </main>
     

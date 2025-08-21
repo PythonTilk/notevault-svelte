@@ -143,6 +143,20 @@ router.post('/messages', authenticateToken, [
         reactions: []
       };
 
+      // Broadcast to appropriate room; clients ignore own messages
+      try {
+        const io = req.app.get('io');
+        if (io) {
+          if (message.channel_id) {
+            io.to(message.channel_id).emit('new-message', formattedMessage);
+          } else {
+            io.to('global-chat').emit('new-message', formattedMessage);
+          }
+        }
+      } catch (e) {
+        console.warn('Socket broadcast failed:', e?.message || e);
+      }
+
       res.status(201).json(formattedMessage);
     });
   });

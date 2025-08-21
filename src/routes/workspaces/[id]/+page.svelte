@@ -600,24 +600,24 @@
 </svelte:head>
 
 <!-- Header -->
-<header class="bg-dark-900 border-b border-dark-800 px-4 md:px-6 py-4">
+<header class="bg-dark-900 border-b border-dark-800 px-4 md:px-6 py-1 flex-shrink-0">
   <div class="flex items-center justify-between">
     <div class="flex items-center space-x-3 md:space-x-4 min-w-0 flex-1">
       {#if $currentWorkspace}
         <div
-          class="w-8 h-8 md:w-10 md:h-10 rounded-lg flex items-center justify-center text-white font-bold flex-shrink-0"
+          class="w-6 h-6 md:w-8 md:h-8 rounded-lg flex items-center justify-center text-white font-bold flex-shrink-0"
           style="background-color: {$currentWorkspace.color}"
         >
           {$currentWorkspace.name.charAt(0).toUpperCase()}
         </div>
         <div class="min-w-0 flex-1">
-          <h1 class="text-lg md:text-xl font-bold text-white truncate">{$currentWorkspace.name}</h1>
-          <p class="text-dark-400 text-xs md:text-sm">{$workspaceNotes.length} notes</p>
+          <h1 class="text-sm md:text-base font-bold text-white truncate">{$currentWorkspace.name}</h1>
+          <p class="text-dark-400 text-[10px] md:text-xs">{$workspaceNotes.length} notes</p>
         </div>
       {/if}
     </div>
     
-    <div class="flex items-center space-x-1 md:space-x-3 flex-shrink-0">
+    <div class="flex items-center space-x-1 md:space-x-1 flex-shrink-0">
       <!-- Collections Toggle -->
       <button
         class="btn-ghost text-xs md:text-sm px-2 md:px-3"
@@ -660,14 +660,14 @@
       <!-- Desktop-only buttons -->
       {#if !isMobile}
         <button
-          class="btn-secondary text-sm"
+          class="btn-secondary text-xs md:text-sm"
           on:click={resetCanvas}
           title="Reset View"
         >
           Reset View
         </button>
         <button 
-          class="btn-ghost text-sm" 
+          class="btn-ghost text-xs md:text-sm" 
           aria-label="Manage workspace members"
           on:click={() => showMemberModal = true}
         >
@@ -680,7 +680,7 @@
           {/if}
         </button>
         <button 
-          class="btn-ghost text-sm" 
+          class="btn-ghost text-xs md:text-sm" 
           on:click={() => showShareModal = true}
           aria-label="Share workspace"
         >
@@ -688,7 +688,7 @@
           Share
         </button>
         <button
-          class="btn-ghost text-sm"
+          class="btn-ghost text-xs md:text-sm"
           on:click={() => showMeetingModal = true}
           aria-label="Schedule meeting"
         >
@@ -696,7 +696,7 @@
           Schedule Meeting
         </button>
         <button 
-          class="btn-ghost text-sm" 
+          class="btn-ghost text-xs md:text-sm" 
           on:click={() => showSettingsModal = true}
           aria-label="Workspace settings"
         >
@@ -810,7 +810,7 @@
 </div>
 
 <!-- Main Layout with Sidebar -->
-<div class="flex-1 flex overflow-hidden relative">
+<div class="flex-1 flex min-h-0 overflow-hidden relative">
   <!-- Collections Sidebar -->
   {#if showCollectionsSidebar}
     <!-- Mobile overlay backdrop -->
@@ -864,7 +864,7 @@
   {/if}
 
   <!-- Main Content with Chat Sidebar -->
-<main class="flex-1 overflow-hidden flex bg-dark-950">
+<main class="flex-1 min-h-0 overflow-hidden flex bg-dark-950">
   <!-- Canvas Area -->
   <div class="flex-1 relative">
   <div
@@ -963,9 +963,9 @@
   
   <!-- Chat Sidebar -->
   {#if showChatSidebar}
-    <div class="w-80 bg-dark-900 border-l border-dark-800 flex flex-col flex-shrink-0">
+    <div class="w-80 bg-dark-900 border-l border-dark-800 flex flex-col flex-shrink-0" style="max-height: 100%">
       <!-- Chat Header -->
-      <div class="p-4 border-b border-dark-800">
+      <div class="p-3 border-b border-dark-800">
         <div class="flex items-center justify-between">
           <h3 class="text-lg font-semibold text-white">Workspace Chat</h3>
           <button

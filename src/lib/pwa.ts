@@ -27,7 +27,22 @@ export async function initializePWA() {
     return;
   }
 
-  // Register service worker
+  // In development, do not register SW to avoid dev navigation/cache issues
+  if (import.meta.env.DEV) {
+    try {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      for (const reg of registrations) {
+        await reg.unregister();
+      }
+      console.log('Unregistered existing service workers in dev');
+    } catch {}
+    setupOfflineDetection();
+    setupInstallPrompt();
+    checkInstallationStatus();
+    return;
+  }
+
+  // Register service worker in production only
   await registerServiceWorker();
   
   // Set up offline detection
