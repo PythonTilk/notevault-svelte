@@ -276,7 +276,7 @@ function getInitialShortcuts() {
 export const shortcuts = writable<ShortcutMap>(getInitialShortcuts());
 
 // Active shortcuts listeners
-const activeListeners = new Map<string, EventListener>();
+const activeListeners = new Map<string, (event: KeyboardEvent) => void>();
 
 // Normalize key combination
 function normalizeKey(key: string): string {

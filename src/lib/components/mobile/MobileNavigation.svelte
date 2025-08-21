@@ -2,6 +2,7 @@
   import { createEventDispatcher } from 'svelte';
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
+  import { slide } from 'svelte/transition';
   import { 
     Home, 
     MessageSquare, 

@@ -5,6 +5,8 @@
  * and intelligent caching strategies for optimal performance.
  */
 
+/* eslint-env serviceworker */
+
 const CACHE_NAME = 'notevault-v1.0.0';
 const RUNTIME_CACHE = 'notevault-runtime-v1.0.0';
 const DATA_CACHE = 'notevault-data-v1.0.0';

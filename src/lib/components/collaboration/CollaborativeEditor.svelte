@@ -20,7 +20,7 @@
 
   let editor: HTMLTextAreaElement;
   let isTyping = false;
-  let typingTimeout: NodeJS.Timeout;
+  let typingTimeout: ReturnType<typeof setTimeout>;
   let cursorTrackingEnabled = true;
 
   // Track user selections for highlighting

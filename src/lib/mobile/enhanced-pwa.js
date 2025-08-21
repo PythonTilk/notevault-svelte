@@ -380,7 +380,7 @@ class EnhancedPWA {
 
       // Swipe gestures
       swipe: (element, callbacks = {}) => {
-        let startX, startY, distX, distY;
+        let startX, startY, distX, distY, startTime;
         const threshold = 100; // minimum distance
         const restraint = 100; // maximum perpendicular distance
         const allowedTime = 300; // maximum time allowed

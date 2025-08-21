@@ -1,5 +1,6 @@
 <script>
   import { onMount, createEventDispatcher } from 'svelte';
+  import { slide } from 'svelte/transition';
   import { Mic, Camera, Share, Save } from 'lucide-svelte';
   import AIEnhancedEditor from '$lib/components/AIEnhancedEditor.svelte';
   import enhancedPWA from '$lib/mobile/enhanced-pwa.js';

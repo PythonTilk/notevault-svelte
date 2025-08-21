@@ -35,7 +35,9 @@ export async function initializePWA() {
         await reg.unregister();
       }
       console.log('Unregistered existing service workers in dev');
-    } catch {}
+    } catch {
+      // Ignore errors when unregistering service workers in dev
+    }
     setupOfflineDetection();
     setupInstallPrompt();
     checkInstallationStatus();

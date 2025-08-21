@@ -456,11 +456,12 @@ class DLPService extends EventEmitter {
         results.actions.push({ type: 'block', finding, policy: policy.id });
         break;
 
-      case 'redact':
+      case 'redact': {
         const redacted = '*'.repeat(finding.length);
         results.modifiedContent = results.modifiedContent.replace(finding.match, redacted);
         results.actions.push({ type: 'redact', finding, policy: policy.id });
         break;
+      }
 
       case 'quarantine':
         results.quarantined = true;

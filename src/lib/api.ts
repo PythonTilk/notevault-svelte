@@ -1,5 +1,15 @@
 import { browser } from '$app/environment';
 
+// Type definitions for fetch API
+type HeadersInit = Record<string, string> | Headers;
+type RequestCredentials = 'omit' | 'same-origin' | 'include';
+type RequestInit = {
+  method?: string;
+  headers?: HeadersInit;
+  body?: string | FormData;
+  credentials?: RequestCredentials;
+};
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 class ApiClient {

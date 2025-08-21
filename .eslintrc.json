@@ -10,6 +10,14 @@
     "sourceType": "module",
     "ecmaVersion": 2020
   },
+  "rules": {
+    "no-unused-vars": "warn",
+    "no-undef": "error",
+    "no-inner-declarations": "warn",
+    "no-useless-escape": "warn",
+    "no-self-assign": "warn",
+    "no-case-declarations": "error"
+  },
   "overrides": [
     {
       "files": ["*.ts", "*.tsx"],

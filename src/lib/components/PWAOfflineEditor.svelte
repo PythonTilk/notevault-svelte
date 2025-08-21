@@ -27,7 +27,7 @@
     }
   }
 
-  let autoSaveTimeout: NodeJS.Timeout;
+  let autoSaveTimeout: ReturnType<typeof setTimeout>;
 
   onMount(() => {
     // Load from offline storage if note exists locally
