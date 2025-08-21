@@ -11,6 +11,7 @@
     "ecmaVersion": 2020
   },
   "rules": {
+    // Treat most issues as warnings instead of errors
     "no-unused-vars": "warn",
     "no-undef": "error",
     "no-inner-declarations": "warn",
