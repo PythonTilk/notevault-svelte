@@ -242,13 +242,21 @@ jobs:
     - name: Check for secrets in code
       run: |
         # Basic check for potential secrets (expand as needed)
-        if grep -r "password.*=" . --exclude-dir=node_modules --exclude-dir=.git; then
+        # Look for hardcoded passwords with actual values (not empty strings or variables)
+        if grep -rE "password\s*=\s*['\"][a-zA-Z0-9._-]{3,}['\"]" . --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=.github; then
           echo "⚠️  Potential hardcoded passwords found"
           exit 1
         fi
         
-        if grep -r "api_key.*=" . --exclude-dir=node_modules --exclude-dir=.git; then
+        # Look for hardcoded API keys with actual values
+        if grep -rE "api_key\s*=\s*['\"][a-zA-Z0-9._-]{10,}['\"]" . --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=.github; then
           echo "⚠️  Potential API keys found"
+          exit 1
+        fi
+        
+        # Look for other common secret patterns with actual values
+        if grep -rE "(secret|token)\s*=\s*['\"][a-zA-Z0-9._-]{10,}['\"]" . --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=.github; then
+          echo "⚠️  Potential hardcoded secrets found"
           exit 1
         fi
         

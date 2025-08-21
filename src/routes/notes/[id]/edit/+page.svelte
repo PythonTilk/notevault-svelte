@@ -334,7 +334,7 @@
               on:template-applied={handleTemplateApplied}
               on:analysis-completed={handleAnalysisCompleted}
             />
-          {:else
+          {:else}
             <!-- Fallback traditional editor -->
             <div class="h-full border border-dark-700 rounded-lg overflow-hidden">
               <div class="bg-dark-800 px-4 py-2 border-b border-dark-700">

@@ -90,7 +90,7 @@ class DatabaseMigration {
     }
   }
 
-  calculateChecksum(content) {
+  async calculateChecksum(content) {
     const crypto = await import('crypto');
     return crypto.createHash('sha256').update(content).digest('hex');
   }
