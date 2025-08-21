@@ -64,6 +64,7 @@
   
   // Chat
   let showChatSidebar = false;
+  let showCollaboratorsSidebar = false;
   let chatMessage = '';
   let chatContainer: HTMLDivElement;
   
@@ -645,17 +646,21 @@
         {/if}
       </button>
       
-      <!-- Collaboration Status -->
-      {#if $collaborationStatus.connected}
-        <div class="flex items-center space-x-2 bg-dark-800 px-2 md:px-3 py-2 rounded-lg border border-dark-700">
-          <CollaboratorsList 
-            {workspaceId} 
-            compact={true} 
-            maxVisible={isMobile ? 2 : 4}
-            showTypingIndicators={false}
-          />
-        </div>
-      {/if}
+      <!-- Collaborators Toggle -->
+      <button
+        class="btn-ghost text-xs md:text-sm px-2 md:px-3"
+        on:click={() => showCollaboratorsSidebar = !showCollaboratorsSidebar}
+        title={showCollaboratorsSidebar ? 'Hide Collaborators' : 'Show Collaborators'}
+        aria-label="Toggle collaborators sidebar"
+      >
+        <Users class="w-4 h-4 {isMobile ? '' : 'mr-2'}" />
+        {#if !isMobile}Collaborators{/if}
+        {#if $onlineUserCount > 0}
+          <span class="ml-1 bg-green-500 text-white text-xs rounded-full px-1.5 py-0.5">
+            {$onlineUserCount}
+          </span>
+        {/if}
+      </button>
 
       <!-- Desktop-only buttons -->
       {#if !isMobile}
@@ -1055,6 +1060,42 @@
             </div>
           </div>
         {/if}
+      </div>
+    </div>
+  {/if}
+
+  <!-- Collaborators Sidebar -->
+  {#if showCollaboratorsSidebar}
+    <div class="w-72 bg-dark-900 border-l border-dark-800 flex flex-col flex-shrink-0" style="max-height: 100%">
+      <!-- Header -->
+      <div class="p-3 border-b border-dark-800">
+        <div class="flex items-center justify-between">
+          <h3 class="text-lg font-semibold text-white">Collaborators</h3>
+          <button
+            on:click={() => showCollaboratorsSidebar = false}
+            class="text-dark-400 hover:text-white"
+            aria-label="Close collaborators sidebar"
+          >
+            ×
+          </button>
+        </div>
+        <p class="text-sm text-dark-400">
+          {#if $collaborationStatus.connected}
+            {$onlineUserCount} online
+          {:else}
+            Connecting...
+          {/if}
+        </p>
+      </div>
+
+      <!-- Collaborators List -->
+      <div class="flex-1 overflow-y-auto p-3">
+        <CollaboratorsList
+          {workspaceId}
+          compact={false}
+          maxVisible={50}
+          showTypingIndicators={true}
+        />
       </div>
     </div>
   {/if}
