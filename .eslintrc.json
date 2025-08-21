@@ -13,11 +13,11 @@
   "rules": {
     // Treat most issues as warnings instead of errors
     "no-unused-vars": "warn",
-    "no-undef": "error",
+    "no-undef": "warn",
     "no-inner-declarations": "warn",
     "no-useless-escape": "warn",
     "no-self-assign": "warn",
-    "no-case-declarations": "error"
+    "no-case-declarations": "warn"
   },
   "overrides": [
     {

@@ -126,7 +126,13 @@ declare module '$env/static/private' {
 	export const INITIAL_NUM_WARM_SERVERS: string;
 	export const PYGAME_HIDE_SUPPORT_PROMPT: string;
 	export const INIT_CWD: string;
+	export const TEST: string;
+	export const VITEST: string;
 	export const NODE_ENV: string;
+	export const PROD: string;
+	export const DEV: string;
+	export const BASE_URL: string;
+	export const MODE: string;
 }
 
 /**
@@ -256,7 +262,13 @@ declare module '$env/dynamic/private' {
 		INITIAL_NUM_WARM_SERVERS: string;
 		PYGAME_HIDE_SUPPORT_PROMPT: string;
 		INIT_CWD: string;
+		TEST: string;
+		VITEST: string;
 		NODE_ENV: string;
+		PROD: string;
+		DEV: string;
+		BASE_URL: string;
+		MODE: string;
 		[key: `PUBLIC_${string}`]: undefined;
 		[key: `${string}`]: string | undefined;
 	}
