@@ -68,7 +68,7 @@ export const cdnConfig = {
     enabled: true,
     level: 6,
     threshold: 1024, // Only compress files larger than 1KB
-    filter: (req, res) => {
+    filter: (req) => {
       if (req.headers['x-no-compression']) {
         return false;
       }

@@ -1,10 +1,8 @@
 import express from 'express';
-import { body, validationResult } from 'express-validator';
 import { authenticateToken } from '../middleware/auth.js';
 import { auditLogger, SECURITY_EVENTS, logSecurityEvent } from '../utils/logger.js';
 import { 
   asyncHandler, 
-  ValidationError, 
   AuthorizationError,
   DatabaseWrapper 
 } from '../utils/errorHandler.js';

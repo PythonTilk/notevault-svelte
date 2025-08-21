@@ -77,8 +77,7 @@ export const csrfProtection = (req, res, next) => {
     return next();
   }
 
-  // For JWT-based auth, check for custom CSRF header
-  const csrfToken = req.headers['x-csrf-token'];
+  // For JWT-based auth, check origin/referer for CSRF protection
   const origin = req.headers.origin;
   const referer = req.headers.referer;
 

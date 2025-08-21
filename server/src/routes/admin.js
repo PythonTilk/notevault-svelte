@@ -40,7 +40,7 @@ router.get('/stats', (req, res) => {
       memoryUsage: process.memoryUsage().heapUsed,
       cpuUsage: process.cpuUsage().user
     });
-  }).catch(err => {
+  }).catch(() => {
     res.status(500).json({ error: 'Failed to fetch stats' });
   });
 });
@@ -192,18 +192,10 @@ router.post('/invite', [
       });
     });
 
-    // Get inviter name for email
-    const inviter = await new Promise((resolve, reject) => {
-      db.get('SELECT display_name, email FROM users WHERE id = ?', [inviterId], (err, user) => {
-        if (err) reject(err);
-        else resolve(user);
-      });
-    });
-
     // Send invitation email (you would implement this with your email service)
     try {
       // This would be implemented with your email service
-      // await emailService.sendUserInvitation(email, inviter.display_name, inviteToken, role, message);
+      // await emailService.sendUserInvitation(email, inviteToken, role, message);
       console.log(`Invitation email would be sent to ${email} with token ${inviteToken}`);
     } catch (emailError) {
       console.error('Failed to send invitation email:', emailError);
