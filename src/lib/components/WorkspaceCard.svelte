@@ -59,7 +59,7 @@
     <div class="flex items-center space-x-4">
       <div class="flex items-center space-x-1">
         <Users class="w-4 h-4" />
-        <span>{workspace.members.length} member{workspace.members.length !== 1 ? 's' : ''}</span>
+        <span>{(workspace.members || []).length} member{(workspace.members || []).length !== 1 ? 's' : ''}</span>
       </div>
       <div class="flex items-center space-x-1">
         <Calendar class="w-4 h-4" />
@@ -71,16 +71,19 @@
   <!-- Members Preview -->
   <div class="flex items-center space-x-2 mt-4">
     <div class="flex -space-x-2">
-      {#each workspace.members.slice(0, 3) as member}
+      {#each (workspace.members || []).slice(0, 3) as member}
         <img
-          src="https://api.dicebear.com/7.x/avataaars/svg?seed={member.userId}"
+          src="https://api.dicebear.com/7.x/avataaars/svg?seed={member.userId || member.id || 'default'}"
           alt="Member"
           class="w-6 h-6 rounded-full border-2 border-dark-900"
+          on:error={(e) => {
+            e.currentTarget.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=default`;
+          }}
         />
       {/each}
-      {#if workspace.members.length > 3}
+      {#if (workspace.members || []).length > 3}
         <div class="w-6 h-6 rounded-full bg-dark-700 border-2 border-dark-900 flex items-center justify-center">
-          <span class="text-xs text-dark-300">+{workspace.members.length - 3}</span>
+          <span class="text-xs text-dark-300">+{(workspace.members || []).length - 3}</span>
         </div>
       {/if}
     </div>

@@ -1,0 +1,3 @@
+# This file ensures the database/ directory is tracked by git
+# while ignoring actual database files.
+# SQLite database files will be stored here in development.

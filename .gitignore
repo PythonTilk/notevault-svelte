@@ -1,0 +1,237 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Build outputs
+.svelte-kit/
+build/
+dist/
+.output/
+.vercel/
+.netlify/
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+logs/
+*.log
+backend.log
+frontend.log
+server.log
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# nyc test coverage
+.nyc_output/
+
+# Dependency directories
+jspm_packages/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# parcel-bundler cache (https://parceljs.org/)
+.cache
+.parcel-cache
+
+# Next.js build output
+.next
+
+# Nuxt.js build / generate output
+.nuxt
+
+# Gatsby files
+.cache/
+public
+
+# Storybook build outputs
+.out
+.storybook-out
+
+# Temporary folders
+tmp/
+temp/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+server/database/*.db
+server/database/*.sqlite
+server/database/*.sqlite3
+!server/database/.gitkeep
+
+# Upload directories
+uploads/
+server/uploads/*
+!server/uploads/.gitkeep
+
+# Test files
+test-results/
+playwright-report/
+playwright/.cache/
+
+# Configuration files (keep examples)
+config.toml
+docker-compose.override.yml
+
+# Backup files
+backups/
+*.backup
+*.bak
+
+# Production artifacts
+.env.production
+docker-secrets/
+ssl-certs/
+
+# Temporary files
+*.tmp
+*.temp
+*.cache
+
+# Security and secrets
+secrets/*
+!secrets/.gitkeep
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*.csr
+api-keys.json
+jwt-secrets.json
+
+# Logs (but keep directory structure)
+logs/*
+!logs/.gitkeep
+*.log.*
+*.log.*.gz
+
+# Development artifacts
+.DS_Store
+.vscode/settings.json
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/dictionaries/
+.idea/shelf/
+
+# Docker volumes and data
+docker-data/
+volumes/
+docker-volumes/
+
+# Monitoring and analytics
+monitoring-data/
+analytics-data/
+metrics/
+
+# Playwright and testing
+test-results/
+playwright-report/
+coverage/
+.nyc_output/
+
+# Development databases
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Editor swap files
+*.swp
+*.swo
+*~
+.#*
+#*#
+
+# Package manager locks (keep one, ignore others)
+# Keep package-lock.json, ignore others
+yarn.lock
+pnpm-lock.yaml
+
+# Build artifacts
+build/
+dist/
+.output/
+.vercel/
+.netlify/
+.firebase/
+
+# Runtime files
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage and test artifacts
+.coverage
+htmlcov/
+.tox/
+.pytest_cache/
+
+# Documentation build
+docs/_build/
+docs/.doctrees/
+
+# Backup and archive files
+*.tar.gz
+*.zip
+*.rar
+*.7z
+
+# System files
+.fuse_hidden*
+.nfs*

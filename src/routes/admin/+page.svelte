@@ -13,6 +13,7 @@
     Clock
   } from 'lucide-svelte';
   import type { SystemStats, AuditLog } from '$lib/types';
+  import { api } from '$lib/api';
 
   let stats: SystemStats = {
     totalUsers: 0,
@@ -27,92 +28,42 @@
 
   let recentLogs: AuditLog[] = [];
   let systemHealth = 'healthy';
+  let loading = true;
+  let error = '';
 
-  // Mock data
-  onMount(() => {
-    // Simulate loading stats
-    setTimeout(() => {
+  // Load real data from API
+  onMount(async () => {
+    try {
+      loading = true;
+      const systemStats = await api.getSystemStats();
       stats = {
-        totalUsers: 1247,
-        activeUsers: 89,
-        totalWorkspaces: 342,
-        totalNotes: 5678,
-        totalFiles: 1234,
-        storageUsed: 15728640000, // 14.6 GB
-        memoryUsage: 68,
-        cpuUsage: 23
+        totalUsers: systemStats.totalUsers || 0,
+        activeUsers: systemStats.activeUsers || 0,
+        totalWorkspaces: systemStats.totalWorkspaces || 0,
+        totalNotes: systemStats.totalNotes || 0,
+        totalFiles: systemStats.totalFiles || 0,
+        storageUsed: systemStats.storageUsed || 0,
+        memoryUsage: Math.round((systemStats.memoryUsage || 0) / 1024 / 1024 * 100) / 100,
+        cpuUsage: Math.round((systemStats.cpuUsage || 0) / 1000000 * 100) / 100
       };
-    }, 500);
-
-    // Mock recent audit logs
-    recentLogs = [
-      {
-        id: '1',
-        action: 'User Login',
-        userId: '1',
-        user: {
-          id: '1',
-          username: 'demo_user',
-          email: 'demo@example.com',
-          displayName: 'Demo User',
-          avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=demo',
-          role: 'admin',
-          createdAt: new Date(),
-          lastActive: new Date(),
-          isOnline: true
-        },
-        targetType: 'session',
-        targetId: 'session_123',
-        details: { ip: '192.168.1.100', userAgent: 'Chrome/91.0' },
-        ipAddress: '192.168.1.100',
-        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        createdAt: new Date(Date.now() - 300000)
-      },
-      {
-        id: '2',
-        action: 'Workspace Created',
-        userId: '2',
-        user: {
-          id: '2',
-          username: 'alice_dev',
-          email: 'alice@example.com',
-          displayName: 'Alice Developer',
-          avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=alice',
-          role: 'user',
-          createdAt: new Date(),
-          lastActive: new Date(),
-          isOnline: true
-        },
-        targetType: 'workspace',
-        targetId: 'ws_456',
-        details: { name: 'New Project Workspace', isPublic: false },
-        ipAddress: '192.168.1.101',
-        userAgent: 'Mozilla/5.0 (macOS; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-        createdAt: new Date(Date.now() - 600000)
-      },
-      {
-        id: '3',
-        action: 'File Upload',
-        userId: '3',
-        user: {
-          id: '3',
-          username: 'bob_designer',
-          email: 'bob@example.com',
-          displayName: 'Bob Designer',
-          avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=bob',
-          role: 'user',
-          createdAt: new Date(),
-          lastActive: new Date(),
-          isOnline: false
-        },
-        targetType: 'file',
-        targetId: 'file_789',
-        details: { fileName: 'design-mockup.png', size: 2048576 },
-        ipAddress: '192.168.1.102',
-        userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36',
-        createdAt: new Date(Date.now() - 900000)
+      
+      // Try to load audit logs
+      try {
+        const auditLogs = await api.getAuditLogs({ limit: 10 });
+        recentLogs = Array.isArray(auditLogs) ? auditLogs : [];
+      } catch (auditError) {
+        console.warn('Could not load audit logs:', auditError);
+        recentLogs = [];
       }
-    ];
+      
+      systemHealth = 'healthy';
+    } catch (err) {
+      console.error('Failed to load admin stats:', err);
+      error = 'Failed to load system statistics';
+      systemHealth = 'error';
+    } finally {
+      loading = false;
+    }
   });
 
   function formatBytes(bytes: number): string {
@@ -170,12 +121,24 @@
       <p class="text-dark-400 mt-1">System overview and monitoring</p>
     </div>
     <div class="flex items-center space-x-3">
-      <div class="flex items-center space-x-2">
-        <svelte:component this={getHealthIcon(systemHealth)} class="w-5 h-5 {getHealthColor(systemHealth)}" />
-        <span class="text-sm font-medium {getHealthColor(systemHealth)} capitalize">
-          System {systemHealth}
-        </span>
-      </div>
+      {#if loading}
+        <div class="animate-pulse flex items-center space-x-2">
+          <div class="w-5 h-5 bg-dark-600 rounded"></div>
+          <div class="w-20 h-4 bg-dark-600 rounded"></div>
+        </div>
+      {:else if error}
+        <div class="flex items-center space-x-2">
+          <AlertTriangle class="w-5 h-5 text-red-400" />
+          <span class="text-sm font-medium text-red-400">System Error</span>
+        </div>
+      {:else}
+        <div class="flex items-center space-x-2">
+          <svelte:component this={getHealthIcon(systemHealth)} class="w-5 h-5 {getHealthColor(systemHealth)}" />
+          <span class="text-sm font-medium {getHealthColor(systemHealth)} capitalize">
+            System {systemHealth}
+          </span>
+        </div>
+      {/if}
     </div>
   </div>
 </header>
@@ -194,9 +157,8 @@
           <div class="ml-4">
             <p class="text-sm font-medium text-dark-400">Total Users</p>
             <p class="text-2xl font-bold text-white">{stats.totalUsers.toLocaleString()}</p>
-            <p class="text-xs text-green-400 mt-1">
-              <TrendingUp class="w-3 h-3 inline mr-1" />
-              +12% from last month
+            <p class="text-xs text-dark-400 mt-1">
+              Registered users
             </p>
           </div>
         </div>
@@ -225,9 +187,8 @@
           <div class="ml-4">
             <p class="text-sm font-medium text-dark-400">Total Notes</p>
             <p class="text-2xl font-bold text-white">{stats.totalNotes.toLocaleString()}</p>
-            <p class="text-xs text-green-400 mt-1">
-              <TrendingUp class="w-3 h-3 inline mr-1" />
-              +8% from last week
+            <p class="text-xs text-dark-400 mt-1">
+              Total documents
             </p>
           </div>
         </div>
@@ -295,12 +256,12 @@
                 <HardDrive class="w-4 h-4 text-purple-400" />
                 <span class="text-sm font-medium text-white">Storage Usage</span>
               </div>
-              <span class="text-sm text-dark-300">14.6%</span>
+              <span class="text-sm text-dark-300">{((stats.storageUsed || 0) / (100 * 1024 * 1024 * 1024) * 100).toFixed(1)}%</span>
             </div>
             <div class="w-full bg-dark-800 rounded-full h-2">
               <div 
                 class="bg-purple-400 h-2 rounded-full transition-all duration-300"
-                style="width: 14.6%"
+                style="width: {((stats.storageUsed || 0) / (100 * 1024 * 1024 * 1024) * 100).toFixed(1)}%"
               ></div>
             </div>
           </div>
@@ -321,60 +282,120 @@
           </div>
           <div class="flex items-center justify-between">
             <span class="text-dark-300">Messages Today</span>
-            <span class="text-white font-medium">1,247</span>
+            <span class="text-white font-medium">{loading ? '...' : '0'}</span>
           </div>
           <div class="flex items-center justify-between">
             <span class="text-dark-300">New Users (24h)</span>
-            <span class="text-green-400 font-medium">+23</span>
+            <span class="text-green-400 font-medium">{loading ? '...' : '+0'}</span>
           </div>
           <div class="flex items-center justify-between">
             <span class="text-dark-300">Server Uptime</span>
-            <span class="text-white font-medium">99.9%</span>
+            <span class="text-white font-medium">{loading ? '...' : '99.9%'}</span>
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+      <a href="/admin/users" class="card p-6 hover:bg-dark-800/50 transition-colors">
+        <div class="flex items-center space-x-4">
+          <Users class="w-8 h-8 text-blue-400" />
+          <div>
+            <h4 class="font-semibold text-white">User Management</h4>
+            <p class="text-sm text-dark-400">Manage users and permissions</p>
+          </div>
+        </div>
+      </a>
+
+      <a href="/admin/workspaces" class="card p-6 hover:bg-dark-800/50 transition-colors">
+        <div class="flex items-center space-x-4">
+          <FileText class="w-8 h-8 text-green-400" />
+          <div>
+            <h4 class="font-semibold text-white">Workspaces</h4>
+            <p class="text-sm text-dark-400">Monitor and manage workspaces</p>
+          </div>
+        </div>
+      </a>
+
+      <a href="/admin/audit-logs" class="card p-6 hover:bg-dark-800/50 transition-colors">
+        <div class="flex items-center space-x-4">
+          <Activity class="w-8 h-8 text-purple-400" />
+          <div>
+            <h4 class="font-semibold text-white">Audit Logs</h4>
+            <p class="text-sm text-dark-400">View system activity and security logs</p>
+          </div>
+        </div>
+      </a>
+
+      <a href="/admin/announcements" class="card p-6 hover:bg-dark-800/50 transition-colors">
+        <div class="flex items-center space-x-4">
+          <MessageSquare class="w-8 h-8 text-yellow-400" />
+          <div>
+            <h4 class="font-semibold text-white">Announcements</h4>
+            <p class="text-sm text-dark-400">Manage system announcements</p>
+          </div>
+        </div>
+      </a>
     </div>
 
     <!-- Recent Activity -->
     <div class="card">
       <div class="flex items-center justify-between mb-4">
         <h3 class="text-lg font-semibold text-white">Recent Activity</h3>
-        <a href="/admin/logs" class="text-sm text-primary-400 hover:text-primary-300">
+        <a href="/admin/audit-logs" class="text-sm text-primary-400 hover:text-primary-300">
           View all logs
         </a>
       </div>
       
       <div class="space-y-4">
-        {#each recentLogs as log (log.id)}
-          <div class="flex items-start space-x-3 p-3 bg-dark-800 rounded-lg">
-            <img
-              src={log.user.avatar}
-              alt={log.user.displayName}
-              class="w-8 h-8 rounded-full flex-shrink-0"
-            />
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center space-x-2">
-                <span class="text-sm font-medium text-white">
-                  {log.user.displayName}
-                </span>
-                <span class="text-sm text-dark-400">
-                  {log.action}
-                </span>
-                <span class="text-xs text-dark-500">
-                  {formatDate(log.createdAt)}
-                </span>
-              </div>
-              <div class="text-xs text-dark-400 mt-1">
-                IP: {log.ipAddress} • Target: {log.targetType}#{log.targetId}
-              </div>
-              {#if log.details}
-                <div class="text-xs text-dark-500 mt-1">
-                  {JSON.stringify(log.details)}
-                </div>
-              {/if}
+        {#if loading}
+          <div class="flex items-center justify-center py-8">
+            <div class="animate-pulse flex items-center space-x-2">
+              <div class="w-6 h-6 bg-dark-600 rounded"></div>
+              <div class="w-32 h-4 bg-dark-600 rounded"></div>
             </div>
           </div>
-        {/each}
+        {:else if recentLogs.length === 0}
+          <div class="text-center py-8">
+            <div class="text-dark-400 mb-2">
+              <Clock class="w-8 h-8 mx-auto mb-2" />
+              No recent activity found
+            </div>
+            <p class="text-xs text-dark-500">Activity logs will appear here when available</p>
+          </div>
+        {:else}
+          {#each recentLogs as log (log.id)}
+            <div class="flex items-start space-x-3 p-3 bg-dark-800 rounded-lg">
+              <img
+                src={log.user?.avatar || '/default-avatar.png'}
+                alt={log.user?.displayName || 'Unknown User'}
+                class="w-8 h-8 rounded-full flex-shrink-0"
+              />
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center space-x-2">
+                  <span class="text-sm font-medium text-white">
+                    {log.user?.displayName || 'Unknown User'}
+                  </span>
+                  <span class="text-sm text-dark-400">
+                    {log.action}
+                  </span>
+                  <span class="text-xs text-dark-500">
+                    {formatDate(new Date(log.createdAt))}
+                  </span>
+                </div>
+                <div class="text-xs text-dark-400 mt-1">
+                  IP: {log.ipAddress || 'Unknown'} • Target: {log.targetType}#{log.targetId}
+                </div>
+                {#if log.details}
+                  <div class="text-xs text-dark-500 mt-1">
+                    {JSON.stringify(log.details)}
+                  </div>
+                {/if}
+              </div>
+            </div>
+          {/each}
+        {/if}
       </div>
     </div>
   </div>

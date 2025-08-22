@@ -1,0 +1,51 @@
+{
+  "root": true,
+  "extends": ["eslint:recommended"],
+  "env": {
+    "browser": true,
+    "es2017": true,
+    "node": true
+  },
+  "parserOptions": {
+    "sourceType": "module",
+    "ecmaVersion": 2020
+  },
+  "rules": {
+    // Treat most issues as warnings instead of errors
+    "no-unused-vars": "warn",
+    "no-undef": "warn",
+    "no-inner-declarations": "warn",
+    "no-useless-escape": "warn",
+    "no-self-assign": "warn",
+    "no-case-declarations": "warn"
+  },
+  "overrides": [
+    {
+      "files": ["*.ts", "*.tsx"],
+      "parser": "@typescript-eslint/parser",
+      "plugins": ["@typescript-eslint"],
+      "rules": {
+        "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
+        "@typescript-eslint/no-explicit-any": "warn"
+      }
+    },
+    {
+      "files": ["*.svelte"],
+      "parser": "svelte-eslint-parser",
+      "plugins": ["svelte"],
+      "parserOptions": {
+        "parser": "@typescript-eslint/parser"
+      },
+      "rules": {
+        "svelte/no-at-html-tags": "warn"
+      }
+    }
+  ],
+  "ignorePatterns": [
+    "build/",
+    ".svelte-kit/",
+    "dist/",
+    "node_modules/",
+    "*.config.js"
+  ]
+}

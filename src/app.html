@@ -2,14 +2,106 @@
 <html lang="en" class="dark">
 	<head>
 		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		
+		<!-- PWA Meta Tags -->
+		<meta name="theme-color" content="#6366f1" />
+		<meta name="background-color" content="#0f0f23" />
+		<meta name="display" content="standalone" />
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+		<meta name="apple-mobile-web-app-title" content="NoteVault" />
+		<meta name="format-detection" content="telephone=no" />
+		
+		<!-- PWA Manifest -->
+		<link rel="manifest" href="/manifest.json" />
+		
+		<!-- Icons -->
 		<link rel="icon" href="%sveltekit.assets%/favicon.png" />
-		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+		<link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152x152.png" />
+		<link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-192x192.png" />
+		<link rel="apple-touch-icon" sizes="167x167" href="/icons/icon-192x192.png" />
+		
+		<!-- Microsoft Tiles -->
+		<meta name="msapplication-TileImage" content="/icons/icon-144x144.png" />
+		<meta name="msapplication-TileColor" content="#6366f1" />
+		<meta name="msapplication-config" content="/browserconfig.xml" />
+		
+		<!-- Security -->
+		<meta http-equiv="X-Content-Type-Options" content="nosniff" />
+		<meta http-equiv="X-Frame-Options" content="DENY" />
+		<meta http-equiv="X-XSS-Protection" content="1; mode=block" />
+		<meta name="referrer" content="strict-origin-when-cross-origin" />
+		
+		<!-- SEO -->
+		<meta name="description" content="Secure collaborative note-taking and workspace management platform" />
+		<meta name="keywords" content="notes, productivity, collaboration, workspace, secure" />
+		<meta name="author" content="NoteVault" />
+		
+		<!-- Open Graph -->
+		<meta property="og:title" content="NoteVault" />
+		<meta property="og:description" content="Secure collaborative note-taking and workspace management" />
+		<meta property="og:type" content="website" />
+		<meta property="og:image" content="/icons/icon-512x512.png" />
+		
+		<!-- Twitter Card -->
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:title" content="NoteVault" />
+		<meta name="twitter:description" content="Secure collaborative note-taking and workspace management" />
+		<meta name="twitter:image" content="/icons/icon-512x512.png" />
+		
+		<!-- Fonts -->
 		<link rel="preconnect" href="https://fonts.googleapis.com">
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 		<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+		
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover" class="bg-dark-950 text-white">
 		<div style="display: contents">%sveltekit.body%</div>
+		
+		<!-- PWA Install Banner -->
+		<div id="pwa-install-banner" style="display: none;" class="fixed bottom-4 left-4 right-4 bg-primary-600 text-white p-4 rounded-lg shadow-lg z-50">
+			<div class="flex items-center justify-between">
+				<div>
+					<h3 class="font-semibold">Install NoteVault</h3>
+					<p class="text-sm opacity-90">Get the full app experience with offline access</p>
+				</div>
+				<div class="flex space-x-2">
+					<button id="pwa-install-dismiss" class="text-white/80 hover:text-white">
+						<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+							<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+						</svg>
+					</button>
+					<button id="pwa-install-button" class="bg-white text-primary-600 px-4 py-2 rounded font-medium">
+						Install
+					</button>
+				</div>
+			</div>
+		</div>
+		
+		<!-- Offline Indicator -->
+		<div id="offline-indicator" style="display: none;" class="fixed top-4 left-1/2 transform -translate-x-1/2 bg-orange-600 text-white px-4 py-2 rounded-lg shadow-lg z-50">
+			<div class="flex items-center space-x-2">
+				<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+					<path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+				</svg>
+				<span>You're offline. Some features may be limited.</span>
+			</div>
+		</div>
+		
+		<!-- Update Available Notification -->
+		<div id="update-available" style="display: none;" class="fixed bottom-4 right-4 bg-green-600 text-white p-4 rounded-lg shadow-lg z-50">
+			<div class="flex items-center justify-between">
+				<div>
+					<h3 class="font-semibold">Update Available</h3>
+					<p class="text-sm opacity-90">A new version is ready to install</p>
+				</div>
+				<button id="update-button" class="bg-white text-green-600 px-4 py-2 rounded font-medium ml-4">
+					Update
+				</button>
+			</div>
+		</div>
 	</body>
 </html>

@@ -13,7 +13,14 @@
     LogOut
   } from 'lucide-svelte';
   import { currentUser, authStore } from '$lib/stores/auth';
+  import { showCreateWorkspaceModal } from '$lib/stores/modals';
+  import { unreadCount } from '$lib/stores/notifications';
   import { goto } from '$app/navigation';
+  
+  export let visible = true;
+  export let focusModeActive = false;
+  
+  let searchQuery = '';
 
   const navigation = [
     { name: 'Dashboard', href: '/', icon: Home },
@@ -39,11 +46,22 @@
     authStore.logout();
     goto('/login');
   }
+  
+  function handleSearch() {
+    if (searchQuery.trim()) {
+      goto(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+    }
+  }
+  
+  function handleSearchKeyDown(event: KeyboardEvent) {
+    if (event.key === 'Enter') {
+      handleSearch();
+    }
+  }
 </script>
 
-<div class="flex h-screen bg-dark-950">
-  <!-- Sidebar -->
-  <div class="flex flex-col w-64 bg-dark-900 border-r border-dark-800">
+<!-- Sidebar -->
+<div class="flex flex-col bg-dark-900 border-r border-dark-800 sidebar-transition {visible ? 'w-64' : 'w-0 -translate-x-full'} {focusModeActive ? 'opacity-50' : ''} overflow-hidden">
     <!-- Logo -->
     <div class="flex items-center px-6 py-4 border-b border-dark-800">
       <div class="flex items-center space-x-3">
@@ -61,6 +79,8 @@
         <input
           type="text"
           placeholder="Search..."
+          bind:value={searchQuery}
+          on:keydown={handleSearchKeyDown}
           class="w-full pl-10 pr-4 py-2 bg-dark-800 border border-dark-700 rounded-lg text-sm text-white placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
         />
       </div>
@@ -75,15 +95,29 @@
             href={item.href}
             class={isActive(item.href) ? 'sidebar-item-active' : 'sidebar-item-inactive'}
           >
-            <svelte:component this={item.icon} class="w-5 h-5 mr-3" />
-            {item.name}
+            <div class="flex items-center justify-between w-full">
+              <div class="flex items-center">
+                <svelte:component this={item.icon} class="w-5 h-5 mr-3" />
+                {item.name}
+              </div>
+              
+              <!-- Notification Badge -->
+              {#if item.name === 'Notifications' && $unreadCount > 0}
+                <span class="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-red-100 bg-red-600 rounded-full">
+                  {$unreadCount > 99 ? '99+' : $unreadCount}
+                </span>
+              {/if}
+            </div>
           </a>
         {/each}
       </div>
 
       <!-- Create New -->
       <div class="pt-4 border-t border-dark-800">
-        <button class="w-full flex items-center px-3 py-2 text-sm font-medium text-dark-300 hover:bg-dark-800 hover:text-white rounded-lg transition-colors">
+        <button 
+          on:click={() => showCreateWorkspaceModal.set(true)}
+          class="w-full flex items-center px-3 py-2 text-sm font-medium text-dark-300 hover:bg-dark-800 hover:text-white rounded-lg transition-colors"
+        >
           <Plus class="w-5 h-5 mr-3" />
           Create Workspace
         </button>
@@ -138,9 +172,3 @@
       {/if}
     </div>
   </div>
-
-  <!-- Main Content -->
-  <div class="flex-1 flex flex-col overflow-hidden">
-    <slot />
-  </div>
-</div>

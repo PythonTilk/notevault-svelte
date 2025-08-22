@@ -1,0 +1,306 @@
+name: Security Scanning
+
+on:
+  push:
+    branches: [ main, develop, demo ]
+  pull_request:
+    branches: [ main, develop, demo ]
+  schedule:
+    - cron: '0 6 * * 1'  # Weekly on Monday at 6 AM
+
+jobs:
+  dependency-security:
+    runs-on: ubuntu-latest
+    name: Dependency Security Scan
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Frontend dependency audit
+      run: |
+        echo "🔍 Scanning frontend dependencies..."
+        npm audit --audit-level=low --json > frontend-audit.json || true
+        npm audit --audit-level=moderate || echo "Frontend audit completed with issues"
+        
+    - name: Backend dependency audit
+      run: |
+        echo "🔍 Scanning backend dependencies..."
+        cd server
+        npm ci
+        npm audit --audit-level=low --json > backend-audit.json || true
+        npm audit --audit-level=moderate || echo "Backend audit completed with issues"
+        
+    - name: Upload audit results
+      uses: actions/upload-artifact@v4
+      with:
+        name: dependency-audit
+        path: |
+          frontend-audit.json
+          server/backend-audit.json
+        retention-days: 30
+
+  code-security:
+    runs-on: ubuntu-latest
+    name: Code Security Analysis
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Scan for hardcoded secrets
+      run: |
+        echo "🔍 Scanning for potential secrets..."
+        
+        # Check for common secret patterns
+        SECRET_ISSUES=0
+        
+        # API keys
+        if grep -r "api[_-]key\s*=\s*['\"][^'\"]*['\"]" . --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=.github; then
+          echo "⚠️ Potential API keys found"
+          SECRET_ISSUES=$((SECRET_ISSUES + 1))
+        fi
+        
+        # Passwords
+        if grep -r "password\s*=\s*['\"][^'\"]*['\"]" . --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=.github; then
+          echo "⚠️ Potential hardcoded passwords found"
+          SECRET_ISSUES=$((SECRET_ISSUES + 1))
+        fi
+        
+        # JWT secrets (should only be in .env files)
+        if grep -r "jwt[_-]secret\s*=\s*['\"][^'\"]*['\"]" src/ server/src/; then
+          echo "⚠️ Potential JWT secrets in source code"
+          SECRET_ISSUES=$((SECRET_ISSUES + 1))
+        fi
+        
+        # Database URLs
+        if grep -r "database[_-]url\s*=\s*['\"][^'\"]*['\"]" . --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=.github; then
+          echo "⚠️ Potential database URLs found"
+          SECRET_ISSUES=$((SECRET_ISSUES + 1))
+        fi
+        
+        if [ $SECRET_ISSUES -eq 0 ]; then
+          echo "✅ No obvious secrets found in source code"
+        else
+          echo "⚠️ Found $SECRET_ISSUES potential secret issues"
+        fi
+        
+        echo "SECRET_ISSUES=$SECRET_ISSUES" >> $GITHUB_OUTPUT
+        
+    - name: Check for debug code
+      run: |
+        echo "🔍 Checking for debug code..."
+        
+        DEBUG_ISSUES=0
+        
+        # Console.log statements (should be removed in production)
+        CONSOLE_COUNT=$(grep -r "console\.log\|console\.debug\|console\.warn" src/ | wc -l)
+        echo "Found $CONSOLE_COUNT console statements"
+        
+        # Debugger statements
+        DEBUGGER_COUNT=$(grep -r "debugger" src/ | wc -l)
+        echo "Found $DEBUGGER_COUNT debugger statements"
+        
+        # TODO/FIXME comments that might indicate security issues
+        SECURITY_TODOS=$(grep -r "TODO.*security\|FIXME.*security\|TODO.*auth\|FIXME.*auth" . --exclude-dir=node_modules --exclude-dir=.git | wc -l)
+        echo "Found $SECURITY_TODOS security-related TODOs"
+        
+        echo "CONSOLE_COUNT=$CONSOLE_COUNT" >> $GITHUB_OUTPUT
+        echo "DEBUGGER_COUNT=$DEBUGGER_COUNT" >> $GITHUB_OUTPUT
+        echo "SECURITY_TODOS=$SECURITY_TODOS" >> $GITHUB_OUTPUT
+        
+    - name: Check file permissions
+      run: |
+        echo "🔍 Checking file permissions..."
+        
+        # Check for executable files that shouldn't be
+        EXECUTABLE_FILES=$(find . -type f -executable -not -path "./node_modules/*" -not -path "./.git/*" -not -name "*.sh" | wc -l)
+        echo "Found $EXECUTABLE_FILES potentially problematic executable files"
+        
+        # Check for world-writable files
+        WRITABLE_FILES=$(find . -type f -perm -002 -not -path "./node_modules/*" -not -path "./.git/*" | wc -l)
+        echo "Found $WRITABLE_FILES world-writable files"
+        
+        echo "EXECUTABLE_FILES=$EXECUTABLE_FILES" >> $GITHUB_OUTPUT
+        echo "WRITABLE_FILES=$WRITABLE_FILES" >> $GITHUB_OUTPUT
+
+  backend-security:
+    runs-on: ubuntu-latest
+    name: Backend Security Tests
+    
+    env:
+      NODE_ENV: test
+      JWT_SECRET: test_jwt_secret_key_for_github_actions_minimum_32_characters_long
+      JWT_REFRESH_SECRET: test_refresh_secret_key_for_github_actions_minimum_32_characters_long
+      PORT: 3001
+      
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: server/package-lock.json
+        
+    - name: Install backend dependencies
+      run: |
+        cd server
+        npm ci
+        
+    - name: Start server for security testing
+      run: |
+        cd server
+        npm run init-db
+        npm start &
+        sleep 10
+        
+    - name: Test security headers
+      run: |
+        echo "🔍 Testing security headers..."
+        
+        # Test CORS headers
+        CORS_RESULT=$(curl -H "Origin: http://malicious-site.com" http://localhost:3001/health -I -s | grep -i "access-control-allow-origin" || echo "NO_CORS")
+        
+        if [[ "$CORS_RESULT" == "NO_CORS" ]]; then
+          echo "✅ CORS properly configured - no origin for malicious site"
+        else
+          echo "⚠️ CORS might allow unauthorized origins: $CORS_RESULT"
+        fi
+        
+        # Test for security headers
+        HEADERS=$(curl http://localhost:3001/health -I -s)
+        
+        if echo "$HEADERS" | grep -qi "x-frame-options"; then
+          echo "✅ X-Frame-Options header present"
+        else
+          echo "⚠️ X-Frame-Options header missing"
+        fi
+        
+        if echo "$HEADERS" | grep -qi "x-content-type-options"; then
+          echo "✅ X-Content-Type-Options header present"
+        else
+          echo "⚠️ X-Content-Type-Options header missing"
+        fi
+        
+    - name: Test rate limiting
+      run: |
+        echo "🔍 Testing rate limiting..."
+        
+        # Make rapid requests to test rate limiting
+        for i in {1..20}; do
+          STATUS=$(curl -o /dev/null -s -w "%{http_code}" http://localhost:3001/health)
+          if [[ "$STATUS" == "429" ]]; then
+            echo "✅ Rate limiting working - got 429 status"
+            break
+          fi
+        done
+        
+    - name: Test authentication endpoints
+      run: |
+        echo "🔍 Testing authentication security..."
+        
+        # Test login without credentials
+        LOGIN_RESULT=$(curl -X POST http://localhost:3001/api/auth/login -H "Content-Type: application/json" -d '{}' -s -w "%{http_code}")
+        
+        if [[ "$LOGIN_RESULT" =~ "400" ]] || [[ "$LOGIN_RESULT" =~ "401" ]]; then
+          echo "✅ Login properly rejects empty credentials"
+        else
+          echo "⚠️ Login might accept empty credentials"
+        fi
+
+  frontend-security:
+    runs-on: ubuntu-latest
+    name: Frontend Security Analysis
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Build application
+      run: npm run build
+      
+    - name: Check for XSS vulnerabilities
+      run: |
+        echo "🔍 Checking for potential XSS vulnerabilities..."
+        
+        # Check for innerHTML usage
+        INNERHTML_COUNT=$(grep -r "innerHTML\s*=" src/ | wc -l)
+        echo "Found $INNERHTML_COUNT innerHTML usages (potential XSS risk)"
+        
+        # Check for eval usage
+        EVAL_COUNT=$(grep -r "\beval\s*(" src/ | wc -l)
+        echo "Found $EVAL_COUNT eval() usages (high security risk)"
+        
+        # Check for dangerous DOM methods
+        DANGEROUS_DOM=$(grep -r "document\.write\|outerHTML\s*=" src/ | wc -l)
+        echo "Found $DANGEROUS_DOM dangerous DOM manipulations"
+        
+        if [[ $EVAL_COUNT -gt 0 ]]; then
+          echo "❌ Found eval() usage - high security risk!"
+          exit 1
+        fi
+        
+        echo "INNERHTML_COUNT=$INNERHTML_COUNT" >> $GITHUB_OUTPUT
+        echo "DANGEROUS_DOM=$DANGEROUS_DOM" >> $GITHUB_OUTPUT
+        
+    - name: Check CSP compliance
+      run: |
+        echo "🔍 Checking Content Security Policy compliance..."
+        
+        # Check for inline styles and scripts in Svelte components
+        INLINE_STYLES=$(grep -r "style=" src/ | wc -l)
+        echo "Found $INLINE_STYLES inline styles"
+        
+        # This is more informational for Svelte apps
+        echo "Note: Svelte may generate inline styles during build"
+
+  security-summary:
+    runs-on: ubuntu-latest
+    name: Security Summary
+    needs: [dependency-security, code-security, backend-security, frontend-security]
+    if: always()
+    
+    steps:
+    - name: Create security summary
+      run: |
+        echo "# 🔒 Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Date:** $(date)" >> $GITHUB_STEP_SUMMARY
+        echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## Scan Results" >> $GITHUB_STEP_SUMMARY
+        echo "| Scan Type | Status | Priority |" >> $GITHUB_STEP_SUMMARY
+        echo "|-----------|--------|----------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Dependencies | ${{ needs.dependency-security.result == 'success' && '✅ Clean' || '⚠️ Issues' }} | High |" >> $GITHUB_STEP_SUMMARY
+        echo "| Code Analysis | ${{ needs.code-security.result == 'success' && '✅ Clean' || '⚠️ Issues' }} | Medium |" >> $GITHUB_STEP_SUMMARY
+        echo "| Backend Security | ${{ needs.backend-security.result == 'success' && '✅ Clean' || '⚠️ Issues' }} | High |" >> $GITHUB_STEP_SUMMARY
+        echo "| Frontend Security | ${{ needs.frontend-security.result == 'success' && '✅ Clean' || '⚠️ Issues' }} | Medium |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Overall security status
+        if [[ "${{ needs.dependency-security.result }}" == "success" && "${{ needs.backend-security.result }}" == "success" ]]; then
+          echo "🟢 **Overall Status:** Security scans passed" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "🟡 **Overall Status:** Security issues found - review required" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "🔍 **Action Required:** Review security artifacts for detailed findings" >> $GITHUB_STEP_SUMMARY

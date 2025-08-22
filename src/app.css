@@ -3,12 +3,111 @@
 @tailwind utilities;
 
 @layer base {
+  /* Theme System CSS Custom Properties */
+  :root {
+    /* Default Dark Theme Colors */
+    --color-primary: #3B82F6;
+    --color-secondary: #6366F1;
+    --color-accent: #F59E0B;
+    --color-background: #1F2937;
+    --color-surface: #374151;
+    --color-text: #F9FAFB;
+    --color-textSecondary: #D1D5DB;
+    --color-border: #4B5563;
+    --color-error: #EF4444;
+    --color-success: #10B981;
+    --color-warning: #F59E0B;
+  }
+
+  /* Light Theme */
+  [data-theme="light"] {
+    --color-primary: #3B82F6;
+    --color-secondary: #6366F1;
+    --color-accent: #F59E0B;
+    --color-background: #FFFFFF;
+    --color-surface: #F9FAFB;
+    --color-text: #1F2937;
+    --color-textSecondary: #6B7280;
+    --color-border: #E5E7EB;
+    --color-error: #EF4444;
+    --color-success: #10B981;
+    --color-warning: #F59E0B;
+  }
+
+  /* Cyberpunk Theme */
+  [data-theme="cyberpunk"] {
+    --color-primary: #FF0080;
+    --color-secondary: #00FFFF;
+    --color-accent: #FFFF00;
+    --color-background: #0A0A0A;
+    --color-surface: #1A1A2E;
+    --color-text: #00FFFF;
+    --color-textSecondary: #FF0080;
+    --color-border: #16213E;
+    --color-error: #FF0040;
+    --color-success: #00FF80;
+    --color-warning: #FFFF00;
+  }
+
+  /* Forest Theme */
+  [data-theme="forest"] {
+    --color-primary: #059669;
+    --color-secondary: #047857;
+    --color-accent: #D97706;
+    --color-background: #064E3B;
+    --color-surface: #065F46;
+    --color-text: #ECFDF5;
+    --color-textSecondary: #A7F3D0;
+    --color-border: #047857;
+    --color-error: #DC2626;
+    --color-success: #10B981;
+    --color-warning: #F59E0B;
+  }
+
+  /* Ocean Theme */
+  [data-theme="ocean"] {
+    --color-primary: #0EA5E9;
+    --color-secondary: #0284C7;
+    --color-accent: #06B6D4;
+    --color-background: #0C4A6E;
+    --color-surface: #075985;
+    --color-text: #F0F9FF;
+    --color-textSecondary: #BAE6FD;
+    --color-border: #0369A1;
+    --color-error: #DC2626;
+    --color-success: #10B981;
+    --color-warning: #F59E0B;
+  }
+
+  /* Sunset Theme */
+  [data-theme="sunset"] {
+    --color-primary: #F97316;
+    --color-secondary: #EA580C;
+    --color-accent: #EF4444;
+    --color-background: #7C2D12;
+    --color-surface: #9A3412;
+    --color-text: #FFF7ED;
+    --color-textSecondary: #FDBA74;
+    --color-border: #C2410C;
+    --color-error: #DC2626;
+    --color-success: #10B981;
+    --color-warning: #F59E0B;
+  }
+
   html {
     font-family: 'Inter', system-ui, sans-serif;
   }
   
   body {
     @apply antialiased;
+    background-color: var(--color-background);
+    color: var(--color-text);
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  /* Smooth theme transitions */
+  * {
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
   }
 }
 
