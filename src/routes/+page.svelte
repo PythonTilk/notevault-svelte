@@ -24,7 +24,6 @@
 
   onMount(async () => {
     loadWorkspacesWithLoading();
-    chatStore.connect();
     
     // Load real data
     await loadDashboardData();

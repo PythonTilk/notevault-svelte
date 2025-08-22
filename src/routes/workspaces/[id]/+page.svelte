@@ -75,6 +75,15 @@
   let editingCollection: NoteCollection | null = null;
   let parentCollection: NoteCollection | null = null;
   
+  // Infinite scrolling state
+  let isLoadingNotes = false;
+  let hasMoreNotes = true;
+  let notesOffset = 0;
+  const notesLimit = 50; // Load 50 notes at a time
+  let visibleBounds = { left: 0, right: 0, top: 0, bottom: 0 };
+  let loadingTriggerDistance = 2000; // Load more when within 2000px of edge
+  let infiniteScrollThrottle: ReturnType<typeof setTimeout> | null = null;
+  
   function sanitizeHtml(html: string): string {
     return DOMPurify.sanitize(html.replace(/\n/g, '<br>'));
   }
@@ -106,6 +115,37 @@
   $: filteredNotes = $filteredAndSortedNotes($workspaceNotes);
   $: workspaceAvailableTags = $availableTags($workspaceNotes);
   
+  // Virtual scrolling - only render visible notes for performance
+  $: visibleNotes = getVisibleNotes(filteredNotes);
+  
+  function getVisibleNotes(notes: Note[]) {
+    if (notes.length === 0) return notes;
+    
+    // Add padding around visible area for smooth scrolling
+    const padding = 500;
+    const viewBounds = {
+      left: visibleBounds.left - padding,
+      right: visibleBounds.right + padding,
+      top: visibleBounds.top - padding,
+      bottom: visibleBounds.bottom + padding
+    };
+    
+    return notes.filter(note => {
+      const noteLeft = note.position?.x || 0;
+      const noteTop = note.position?.y || 0;
+      const noteRight = noteLeft + (note.size?.width || 300);
+      const noteBottom = noteTop + (note.size?.height || 200);
+      
+      // Check if note intersects with visible bounds
+      return !(
+        noteRight < viewBounds.left ||
+        noteLeft > viewBounds.right ||
+        noteBottom < viewBounds.top ||
+        noteTop > viewBounds.bottom
+      );
+    });
+  }
+  
   // Get workspace collections (with fallback for empty state)
   $: workspaceCollections = ($collectionsTree && Array.isArray($collectionsTree)) 
     ? $collectionsTree.filter(c => c.workspaceId === workspaceId) 
@@ -134,7 +174,12 @@
       // Load real workspace data, notes, and members
       Promise.all([
         workspaceStore.loadWorkspace(workspaceId),
-        workspaceStore.loadWorkspaceNotes(workspaceId),
+        workspaceStore.loadWorkspaceNotes(workspaceId, {
+          limit: notesLimit,
+          offset: 0,
+          sortBy: 'updatedAt',
+          sortOrder: 'desc'
+        }),
         workspaceStore.loadWorkspaceMembers(workspaceId)
       ]).then(([workspace, notes, members]) => {
         console.log('Workspace loaded:', workspace);
@@ -142,6 +187,16 @@
         console.log('Members loaded:', members.length, 'members');
         console.log('Collections loaded:', $collectionsTree.length, 'collections');
         workspaceMembers = members;
+        
+        // Set initial pagination state
+        notesOffset = notes.length;
+        hasMoreNotes = notes.length >= notesLimit;
+        
+        // Initialize bounds and check for infinite scroll
+        setTimeout(() => {
+          updateVisibleBounds();
+          checkInfiniteScroll();
+        }, 100);
       }).catch(error => {
         console.error('Failed to load workspace data:', error);
         // Set error state or show error message to user
@@ -168,14 +223,23 @@
       }
       // Cleanup resize listener
       window.removeEventListener('resize', updateDeviceType);
+      // Cleanup infinite scroll throttle
+      if (infiniteScrollThrottle) {
+        clearTimeout(infiniteScrollThrottle);
+      }
     };
   });
 
   function handleCanvasMouseDown(event: MouseEvent) {
-    if (event.target === canvasElement) {
-      isPanning = true;
-      lastPanPoint = { x: event.clientX, y: event.clientY };
-      canvasElement.style.cursor = 'grabbing';
+    // Only start panning if clicking on the canvas itself, not on a note
+    const target = event.target as Element;
+    if (target === canvasElement || target.closest('#workspace-canvas') === canvasElement) {
+      // Check if the click is on a note card - if so, don't pan
+      if (!target.closest('[draggable="true"]')) {
+        isPanning = true;
+        lastPanPoint = { x: event.clientX, y: event.clientY };
+        canvasElement.style.cursor = 'grabbing';
+      }
     }
   }
 
@@ -194,9 +258,14 @@
     // Update cursor position for collaboration
     if (canvasElement && $currentUser) {
       const rect = canvasElement.getBoundingClientRect();
-      const x = (event.clientX - rect.left - canvasOffset.x) / canvasScale;
-      const y = (event.clientY - rect.top - canvasOffset.y) / canvasScale;
-      updateCursor(x, y, `workspace-${workspaceId}`);
+      const screenX = event.clientX - rect.left;
+      const screenY = event.clientY - rect.top;
+      
+      // Transform to canvas coordinates
+      const canvasX = (screenX - canvasOffset.x) / canvasScale;
+      const canvasY = (screenY - canvasOffset.y) / canvasScale;
+      
+      updateCursor(canvasX, canvasY, `workspace-${workspaceId}`);
     }
   }
 
@@ -215,6 +284,105 @@
   function updateCanvasTransform() {
     if (canvasElement) {
       canvasElement.style.transform = `translate(${canvasOffset.x}px, ${canvasOffset.y}px) scale(${canvasScale})`;
+      updateVisibleBounds();
+      throttledCheckInfiniteScroll();
+    }
+  }
+  
+  function throttledCheckInfiniteScroll() {
+    if (infiniteScrollThrottle) {
+      clearTimeout(infiniteScrollThrottle);
+    }
+    infiniteScrollThrottle = setTimeout(() => {
+      checkInfiniteScroll();
+      infiniteScrollThrottle = null;
+    }, 100); // Throttle to check at most every 100ms
+  }
+  
+  function updateVisibleBounds() {
+    if (!canvasElement) return;
+    
+    const rect = canvasElement.getBoundingClientRect();
+    const inverseScale = 1 / canvasScale;
+    
+    visibleBounds = {
+      left: (-canvasOffset.x) * inverseScale,
+      right: (-canvasOffset.x + rect.width) * inverseScale,
+      top: (-canvasOffset.y) * inverseScale,
+      bottom: (-canvasOffset.y + rect.height) * inverseScale
+    };
+  }
+  
+  async function checkInfiniteScroll() {
+    if (isLoadingNotes || !hasMoreNotes) return;
+    
+    // Since the canvas is now infinite, we load more notes based on
+    // how much of the visible area contains notes vs empty space
+    const notesInView = visibleNotes.length;
+    const totalNotesLoaded = $workspaceNotes.length;
+    
+    // If we have very few visible notes compared to total notes,
+    // or if we're viewing an area with sparse note density, load more
+    const viewAreaSize = (visibleBounds.right - visibleBounds.left) * 
+                         (visibleBounds.bottom - visibleBounds.top);
+    const notesDensity = notesInView / (viewAreaSize / 100000); // notes per 100k px²
+    
+    // Load more if density is low and we have more notes available
+    if (notesDensity < 0.1 && totalNotesLoaded % notesLimit === 0) {
+      await loadMoreNotes();
+    }
+  }
+  
+  function getNotesBounds() {
+    if ($workspaceNotes.length === 0) {
+      return { left: 0, right: 1000, top: 0, bottom: 1000 };
+    }
+    
+    let minX = Infinity, maxX = -Infinity;
+    let minY = Infinity, maxY = -Infinity;
+    
+    for (const note of $workspaceNotes) {
+      const left = note.position?.x || 0;
+      const top = note.position?.y || 0;
+      const right = left + (note.size?.width || 300);
+      const bottom = top + (note.size?.height || 200);
+      
+      minX = Math.min(minX, left);
+      maxX = Math.max(maxX, right);
+      minY = Math.min(minY, top);
+      maxY = Math.max(maxY, bottom);
+    }
+    
+    return {
+      left: minX,
+      right: maxX,
+      top: minY,
+      bottom: maxY
+    };
+  }
+  
+  async function loadMoreNotes() {
+    if (isLoadingNotes || !hasMoreNotes) return;
+    
+    isLoadingNotes = true;
+    try {
+      const newNotes = await workspaceStore.loadWorkspaceNotes(workspaceId, {
+        limit: notesLimit,
+        offset: notesOffset,
+        sortBy: 'updatedAt',
+        sortOrder: 'desc',
+        append: true
+      });
+      
+      if (newNotes.length < notesLimit) {
+        hasMoreNotes = false;
+      } else {
+        notesOffset += newNotes.length;
+      }
+    } catch (error) {
+      console.error('Failed to load more notes:', error);
+    } finally {
+      isLoadingNotes = false;
     }
   }
   
@@ -276,10 +444,18 @@
 
   function handleNoteDragStart(event: CustomEvent<{ note: Note }>) {
     draggedNote = event.detail.note;
+    // Change cursor to indicate dragging
+    if (canvasElement) {
+      canvasElement.style.cursor = 'grabbing';
+    }
   }
 
   function handleNoteDragEnd(event: CustomEvent<{ note: Note }>) {
     draggedNote = null;
+    // Reset cursor
+    if (canvasElement) {
+      canvasElement.style.cursor = 'grab';
+    }
   }
 
   function handleNoteClick(event: CustomEvent<{ note: Note }>) {
@@ -329,21 +505,53 @@
     event.preventDefault();
     if (draggedNote) {
       const rect = canvasElement.getBoundingClientRect();
-      const x = (event.clientX - rect.left - canvasOffset.x) / canvasScale;
-      const y = (event.clientY - rect.top - canvasOffset.y) / canvasScale;
+      
+      // Convert screen coordinates to canvas coordinates
+      // Account for both canvas offset and scale
+      const screenX = event.clientX - rect.left;
+      const screenY = event.clientY - rect.top;
+      
+      // Transform to canvas coordinates
+      const canvasX = (screenX - canvasOffset.x) / canvasScale;
+      const canvasY = (screenY - canvasOffset.y) / canvasScale;
       
       workspaceStore.updateNote(draggedNote.id, {
-        position: { x, y }
+        position: { 
+          x: Math.round(canvasX), 
+          y: Math.round(canvasY) 
+        }
       });
     }
   }
 
   function handleCanvasDragOver(event: DragEvent) {
     event.preventDefault();
+    
+    // Visual feedback during drag
+    if (draggedNote && canvasElement) {
+      const rect = canvasElement.getBoundingClientRect();
+      const screenX = event.clientX - rect.left;
+      const screenY = event.clientY - rect.top;
+      
+      // Transform to canvas coordinates (same logic as drop)
+      const canvasX = (screenX - canvasOffset.x) / canvasScale;
+      const canvasY = (screenY - canvasOffset.y) / canvasScale;
+      
+      // Update drag preview position (stored for reference)
+      draggedNote.dragPreviewPosition = { x: canvasX, y: canvasY };
+    }
   }
 
   async function handleCreateNote() {
     if (!newNoteTitle.trim()) return;
+
+    // Calculate position at the center of the current viewport
+    const viewCenterX = (visibleBounds.left + visibleBounds.right) / 2;
+    const viewCenterY = (visibleBounds.top + visibleBounds.bottom) / 2;
+    
+    // Add some randomness to avoid overlapping if multiple notes are created
+    const offsetX = (Math.random() - 0.5) * 200; // ±100px random offset
+    const offsetY = (Math.random() - 0.5) * 200;
 
     await workspaceStore.createNote(workspaceId, {
       title: newNoteTitle,
@@ -351,7 +559,11 @@
       type: newNoteType,
       color: newNoteColor,
       tags: newNoteTags,
-      collectionId: newNoteCollectionId
+      collectionId: newNoteCollectionId,
+      position: { 
+        x: Math.round(viewCenterX + offsetX), 
+        y: Math.round(viewCenterY + offsetY) 
+      }
     });
 
     showCreateModal = false;
@@ -370,7 +582,7 @@
   }
 
   function handleCanvasKeyDown(event: KeyboardEvent) {
-    const step = 50;
+    const step = event.shiftKey ? 200 : 50; // Larger steps with Shift
     const zoomStep = 0.1;
     
     switch (event.key) {
@@ -408,6 +620,12 @@
       case '0':
         event.preventDefault();
         resetCanvas();
+        break;
+      case 'h': // Go to origin (home)
+        event.preventDefault();
+        canvasOffset = { x: 0, y: 0 };
+        canvasScale = 1;
+        updateCanvasTransform();
         break;
       case 'Enter':
       case ' ':
@@ -504,12 +722,9 @@
     }
   }
 
-  // Initialize chat when workspace loads
+  // Load workspace-specific messages when workspace loads
   $: if (workspaceId) {
-    if (!$isConnected) {
-      chatStore.connect();
-    }
-    // Load workspace-specific messages
+    // Load workspace-specific messages (connection is handled in layout)
     chatStore.loadMessages({ channel: `workspace-${workspaceId}` });
     chatStore.loadOnlineUsers();
     chatStore.joinWorkspace(workspaceId);
@@ -876,7 +1091,7 @@
     bind:this={canvasElement}
     id="workspace-canvas"
     class="absolute inset-0 cursor-grab touch-none select-none"
-    style="transform-origin: 0 0;"
+    style="transform-origin: 0 0; user-select: none;"
     on:mousedown={handleCanvasMouseDown}
     on:mousemove={handleCanvasMouseMove}
     on:mouseup={handleCanvasMouseUp}
@@ -892,20 +1107,27 @@
     aria-label="Interactive workspace canvas for managing notes"
     on:keydown={handleCanvasKeyDown}
   >
-    <!-- Grid Background -->
-    <div class="absolute inset-0 opacity-10">
-      <svg width="100%" height="100%">
-        <defs>
-          <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
-            <path d="M 50 0 L 0 0 0 50" fill="none" stroke="currentColor" stroke-width="1"/>
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill="url(#grid)" />
-      </svg>
-    </div>
+    <!-- Infinite Grid Background -->
+    <div 
+      class="absolute inset-0 opacity-10 pointer-events-none"
+      style="background-image: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 49px,
+        rgba(156, 163, 175, 0.3) 49px,
+        rgba(156, 163, 175, 0.3) 50px
+      ), repeating-linear-gradient(
+        90deg,
+        transparent,
+        transparent 49px,
+        rgba(156, 163, 175, 0.3) 49px,
+        rgba(156, 163, 175, 0.3) 50px
+      );
+      background-position: {canvasOffset.x % 50}px {canvasOffset.y % 50}px;"
+    ></div>
 
-    <!-- Notes -->
-    {#each filteredNotes as note (note.id)}
+    <!-- Notes (Virtual Scrolling) -->
+    {#each visibleNotes as note (note.id)}
       <NoteCard
         {note}
         isDragging={draggedNote?.id === note.id}
@@ -914,6 +1136,51 @@
         on:click={handleNoteClick}
       />
     {/each}
+    
+    <!-- Canvas Coordinates Display -->
+    <div class="absolute top-4 left-4 bg-dark-900/90 backdrop-blur-sm border border-dark-700 rounded-lg p-2 text-xs text-white">
+      <div class="flex items-center space-x-3">
+        <div>
+          <span class="text-dark-400">X:</span> 
+          <span class="font-mono">{Math.round(-canvasOffset.x / canvasScale)}</span>
+        </div>
+        <div>
+          <span class="text-dark-400">Y:</span> 
+          <span class="font-mono">{Math.round(-canvasOffset.y / canvasScale)}</span>
+        </div>
+        <div>
+          <span class="text-dark-400">Zoom:</span> 
+          <span class="font-mono">{Math.round(canvasScale * 100)}%</span>
+        </div>
+      </div>
+      <div class="text-[10px] text-dark-500 mt-1 border-t border-dark-700 pt-1">
+        <span class="text-dark-400">Keys:</span>
+        Arrows=Move • H=Origin • +/-=Zoom • 0=Reset • Space=New Note
+      </div>
+    </div>
+
+    <!-- Debug Info (only in development) -->
+    {#if import.meta.env.DEV}
+      <div class="absolute top-4 right-4 bg-dark-900/90 backdrop-blur-sm border border-dark-700 rounded-lg p-3 text-xs text-white">
+        <div>Total Notes: {filteredNotes.length}</div>
+        <div>Visible: {visibleNotes.length}</div>
+        <div>Loaded: {$workspaceNotes.length}</div>
+        <div>Has More: {hasMoreNotes ? 'Yes' : 'No'}</div>
+        <div>Loading: {isLoadingNotes ? 'Yes' : 'No'}</div>
+        {#if draggedNote}
+          <div class="text-yellow-400 mt-2">Dragging: {draggedNote.title}</div>
+          {#if draggedNote.dragPreviewPosition}
+            <div>Drop at: {Math.round(draggedNote.dragPreviewPosition.x)}, {Math.round(draggedNote.dragPreviewPosition.y)}</div>
+          {/if}
+        {/if}
+        <div class="text-dark-400 mt-2">View Bounds:</div>
+        <div>L: {Math.round(visibleBounds.left)} R: {Math.round(visibleBounds.right)}</div>
+        <div>T: {Math.round(visibleBounds.top)} B: {Math.round(visibleBounds.bottom)}</div>
+        <div class="text-dark-400 mt-2">Canvas:</div>
+        <div>Offset: {Math.round(canvasOffset.x)}, {Math.round(canvasOffset.y)}</div>
+        <div>Scale: {Math.round(canvasScale * 100)}%</div>
+      </div>
+    {/if}
 
     <!-- Live Cursors and Collaboration -->
     {#if $collaborationStatus.connected}
@@ -922,6 +1189,14 @@
         showUserNames={true}
         showSelections={false}
       />
+    {/if}
+    
+    <!-- Infinite Loading Indicator -->
+    {#if isLoadingNotes}
+      <div class="absolute bottom-10 left-1/2 transform -translate-x-1/2 bg-dark-900/90 backdrop-blur-sm border border-dark-700 rounded-full px-4 py-2 flex items-center space-x-2">
+        <div class="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+        <span class="text-sm text-white">Loading more notes...</span>
+      </div>
     {/if}
   </div>
 
@@ -948,6 +1223,19 @@
         </button>
       </div>
     </div>
+    
+    <!-- Load More Button -->
+    {#if hasMoreNotes && !isLoadingNotes}
+      <div class="bg-dark-900/90 backdrop-blur-sm border border-dark-800 rounded-lg p-2">
+        <button
+          class="w-full px-3 py-2 bg-primary-600 hover:bg-primary-700 text-white text-xs rounded transition-colors"
+          on:click={loadMoreNotes}
+          title="Load more notes"
+        >
+          Load More
+        </button>
+      </div>
+    {/if}
     
     <!-- Mobile-only reset canvas button -->
     {#if isMobile}

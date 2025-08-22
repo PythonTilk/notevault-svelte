@@ -51,9 +51,16 @@ export const workspaceStore = {
     }
   },
   
-  loadWorkspaceNotes: async (workspaceId: string) => {
+  loadWorkspaceNotes: async (workspaceId: string, params?: {
+    limit?: number;
+    offset?: number;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+    append?: boolean;
+  }) => {
     try {
-      const notesData = await api.getWorkspaceNotes(workspaceId);
+      const { append = false, ...queryParams } = params || {};
+      const notesData = await api.getWorkspaceNotes(workspaceId, queryParams);
       const formattedNotes: Note[] = notesData.map((note: any) => ({
         id: note.id,
         title: note.title,
@@ -69,10 +76,20 @@ export const workspaceStore = {
         updatedAt: new Date(note.updatedAt),
         isPublic: note.isPublic
       }));
-      workspaceNotes.set(formattedNotes);
+      
+      if (append) {
+        workspaceNotes.update(notes => [...notes, ...formattedNotes]);
+      } else {
+        workspaceNotes.set(formattedNotes);
+      }
+      
+      return formattedNotes;
     } catch (error) {
       console.error('Failed to load workspace notes:', error);
-      workspaceNotes.set([]);
+      if (!params?.append) {
+        workspaceNotes.set([]);
+      }
+      return [];
     }
   },
 
@@ -210,6 +227,7 @@ export const workspaceStore = {
     color: string;
     tags?: string[];
     isPublic?: boolean;
+    collectionId?: string;
   }) => {
     try {
       const newNoteData = await api.createNote({
