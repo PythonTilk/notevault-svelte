@@ -69,7 +69,7 @@
   }
 
   $: filteredUsers = $onlineUsers.filter(user => 
-    user.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (user.displayName || user.username || '')?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     user.username?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 </script>
@@ -111,7 +111,7 @@
                   <div class="relative">
                     <img
                       src={user.avatar}
-                      alt={user.displayName}
+                      alt={user.displayName || user.username}
                       class="w-10 h-10 rounded-full"
                     />
                     <div class="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-dark-900 rounded-full"></div>
@@ -120,7 +120,7 @@
                   <div class="flex-1 min-w-0">
                     <div class="flex items-center space-x-2">
                       <span class="font-medium text-white truncate">
-                        {user.displayName}
+                        {user.displayName || user.username}
                       </span>
                       {#if getRoleIcon(user.role)}
                         <svelte:component 

@@ -17,9 +17,6 @@
   const emojis = ['😀', '😂', '😍', '🤔', '👍', '👎', '❤️', '🎉', '🔥', '💯'];
 
   onMount(() => {
-    if (!$isConnected) {
-      chatStore.connect();
-    }
     // Load public chat messages only (exclude workspace channels)
     chatStore.loadMessages({ channel: 'public' });
   });
@@ -157,14 +154,7 @@
       bind:this={messagesContainer}
       class="flex-1 overflow-y-auto px-4 py-4 space-y-1"
     >
-      {#if !$isConnected}
-        <div class="flex items-center justify-center h-full">
-          <div class="text-center">
-            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500 mx-auto mb-4"></div>
-            <p class="text-dark-400">Connecting to chat...</p>
-          </div>
-        </div>
-      {:else if $chatMessages.length === 0}
+      {#if $chatMessages.length === 0}
         <div class="flex items-center justify-center h-full">
           <div class="text-center">
             <div class="w-16 h-16 bg-dark-800 rounded-full flex items-center justify-center mx-auto mb-4">

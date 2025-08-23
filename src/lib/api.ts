@@ -10,9 +10,12 @@ type RequestInit = {
   credentials?: RequestCredentials;
 };
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:12001/api';
 
 class ApiClient {
+  private cache = new Map<string, { data: any; timestamp: number }>();
+  private readonly CACHE_TTL = 5000; // 5 seconds cache
+
   private getAuthHeaders(): HeadersInit {
     if (!browser) return {};
     
@@ -20,10 +23,30 @@ class ApiClient {
     return token ? { Authorization: `Bearer ${token}` } : {};
   }
 
+  private getCacheKey(endpoint: string, options: RequestInit = {}): string {
+    return `${options.method || 'GET'}:${endpoint}`;
+  }
+
+  private isValidCache(timestamp: number): boolean {
+    return Date.now() - timestamp < this.CACHE_TTL;
+  }
+
   private async request<T>(
     endpoint: string, 
-    options: RequestInit = {}
+    options: RequestInit = {},
+    retryCount = 0
   ): Promise<T> {
+    const cacheKey = this.getCacheKey(endpoint, options);
+    const method = options.method || 'GET';
+    
+    // Only cache GET requests
+    if (method === 'GET') {
+      const cached = this.cache.get(cacheKey);
+      if (cached && this.isValidCache(cached.timestamp)) {
+        return cached.data;
+      }
+    }
+
     const url = `${API_BASE_URL}${endpoint}`;
     
     const config: RequestInit = {
@@ -39,11 +62,35 @@ class ApiClient {
       const response = await fetch(url, config);
       
       if (!response.ok) {
+        // Handle rate limiting with exponential backoff
+        if (response.status === 429 && retryCount < 3) {
+          const retryAfter = response.headers.get('Retry-After');
+          const delay = retryAfter ? parseInt(retryAfter) * 1000 : Math.pow(2, retryCount) * 1000;
+          
+          console.warn(`Rate limited. Retrying after ${delay}ms (attempt ${retryCount + 1}/3)`);
+          
+          await new Promise(resolve => setTimeout(resolve, delay));
+          return this.request<T>(endpoint, options, retryCount + 1);
+        }
+        
         const error = await response.json().catch(() => ({ error: 'Network error' }));
+        
+        // Provide user-friendly error messages for rate limiting
+        if (response.status === 429) {
+          throw new Error('Too many requests. Please wait a moment and try again.');
+        }
+        
         throw new Error(error.error || `HTTP ${response.status}`);
       }
 
-      return await response.json();
+      const data = await response.json();
+      
+      // Cache GET requests
+      if (method === 'GET') {
+        this.cache.set(cacheKey, { data, timestamp: Date.now() });
+      }
+
+      return data;
     } catch (error) {
       console.error('API request failed:', error);
       throw error;
@@ -149,8 +196,20 @@ class ApiClient {
   }
 
   // Note endpoints
-  async getWorkspaceNotes(workspaceId: string) {
-    return this.request(`/notes/workspace/${workspaceId}`);
+  async getWorkspaceNotes(workspaceId: string, params?: {
+    limit?: number;
+    offset?: number;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+  }) {
+    const query = new URLSearchParams();
+    if (params?.limit) query.set('limit', params.limit.toString());
+    if (params?.offset) query.set('offset', params.offset.toString());
+    if (params?.sortBy) query.set('sortBy', params.sortBy);
+    if (params?.sortOrder) query.set('sortOrder', params.sortOrder);
+    
+    const url = `/notes/workspace/${workspaceId}${query.toString() ? '?' + query.toString() : ''}`;
+    return this.request(url);
   }
 
   async getNote(id: string) {
@@ -167,6 +226,7 @@ class ApiClient {
     color: string;
     tags?: string[];
     isPublic?: boolean;
+    collectionId?: string;
   }) {
     return this.request('/notes', {
       method: 'POST',

@@ -41,6 +41,9 @@
     }
     return $page.url.pathname.startsWith(href);
   }
+  
+  // Reactive statement to debug active states
+  $: console.log('Current page path:', $page.url.pathname);
 
   function handleLogout() {
     authStore.logout();
@@ -93,7 +96,7 @@
         {#each navigation as item}
           <a
             href={item.href}
-            class={isActive(item.href) ? 'sidebar-item-active' : 'sidebar-item-inactive'}
+            class="flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors {isActive(item.href) ? 'bg-primary-600 text-white' : 'text-dark-300 hover:bg-dark-800 hover:text-white'}"
           >
             <div class="flex items-center justify-between w-full">
               <div class="flex items-center">
@@ -133,7 +136,7 @@
             {#each adminNavigation as item}
               <a
                 href={item.href}
-                class={isActive(item.href) ? 'sidebar-item-active' : 'sidebar-item-inactive'}
+                class="flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors {isActive(item.href) ? 'bg-primary-600 text-white' : 'text-dark-300 hover:bg-dark-800 hover:text-white'}"
               >
                 <svelte:component this={item.icon} class="w-5 h-5 mr-3" />
                 {item.name}

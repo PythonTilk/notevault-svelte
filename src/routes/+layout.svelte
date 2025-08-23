@@ -6,6 +6,8 @@
   import { authStore, isAuthenticated, isLoading } from '$lib/stores/auth';
   import { showCreateWorkspaceModal } from '$lib/stores/modals';
   import { goto } from '$app/navigation';
+  import { navigating } from '$app/stores';
+  import { chatStore } from '$lib/stores/chat';
   import Sidebar from '$lib/components/Sidebar.svelte';
   import CommandPalette from '$lib/components/CommandPalette.svelte';
   import CreateWorkspaceModal from '$lib/components/CreateWorkspaceModal.svelte';
@@ -26,8 +28,18 @@
   let rightPanelVisible = false;
   let focusModeActive = false;
 
+  let initialized = false;
+
   onMount(async () => {
-    authStore.checkAuth();
+    if (!initialized) {
+      initialized = true;
+      await authStore.checkAuth();
+      
+      // Initialize chat connection only once after auth is checked
+      if (browser) {
+        chatStore.connect();
+      }
+    }
     
     if (browser) {
       // Initialize PWA functionality
@@ -291,7 +303,7 @@
   }
 
   $: {
-    if (!$isLoading && !$isAuthenticated && !publicRoutes.includes($page.url.pathname)) {
+    if (initialized && !$isLoading && !$isAuthenticated && !publicRoutes.includes($page.url.pathname)) {
       goto('/login');
     }
   }

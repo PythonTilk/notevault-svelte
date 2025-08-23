@@ -25,12 +25,15 @@ const getCurrentUserId = (): string | null => {
 
 export const chatStore = {
   connect: () => {
-    if (!browser || socket?.connected) return;
+    if (!browser) return;
+    
+    // If there's already a connected socket, don't create a new one
+    if (socket && socket.connected) return;
 
     // Use the same base URL as the API but without the /api path for WebSocket
     const wsUrl = import.meta.env.VITE_API_URL 
       ? import.meta.env.VITE_API_URL.replace('/api', '') 
-      : 'http://localhost:3001';
+      : 'http://localhost:12001';
     
     socket = io(wsUrl, {
       transports: ['websocket', 'polling']
